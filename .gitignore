@@ -1,0 +1,15 @@
+# Grok / Cursor runtime artifacts
+mcps/
+terminals/
+
+# Dependencies
+node_modules/
+
+# Build
+dist/
+src-tauri/target/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
