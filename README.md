@@ -19,7 +19,11 @@ npm run electron:dev
 npm run dist
 ```
 
-输出：`release/摸鱼小说阅读器 0.3.0.exe`，双击即可运行。
+输出：`release/moyu-novel-reader-0.3.0-portable.exe`（便携单文件，双击运行）
+
+调试时可先运行解压版：`release/win-unpacked/moyu-novel-reader.exe`
+
+若 Windows 提示「已阻止」，请右键 exe → **属性** → 勾选 **解除锁定**，或在 SmartScreen 中选择「仍要运行」。
 
 ## 主要功能
 
