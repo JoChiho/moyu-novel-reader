@@ -1,6 +1,6 @@
-import type { AppState, Book } from "./index";
+import type { AppState, Book, TextEncoding } from "./index";
 
-export interface ImportTxtResult {
+export interface ImportBookResult {
   ok: boolean;
   book?: Book;
   content?: string;
@@ -20,15 +20,38 @@ export interface ShortcutBindResult {
   error?: string;
 }
 
+export interface ShortcutProbeResult {
+  available: boolean;
+  electronShortcut?: string;
+  error?: string;
+}
+
 export interface MoyuBridge {
   loadAppState: () => Promise<AppState | null>;
   saveAppState: (state: AppState) => Promise<{ ok: boolean; error?: string }>;
-  pickAndReadTxt: () => Promise<ImportTxtResult>;
-  readTextFile: (filePath: string) => Promise<ReadFileResult>;
+  pickAndReadBook: (
+    encoding?: TextEncoding,
+    collapseBlankLines?: boolean,
+  ) => Promise<ImportBookResult>;
+  readBookFile: (
+    filePath: string,
+    encoding?: TextEncoding,
+    collapseBlankLines?: boolean,
+  ) => Promise<ReadFileResult>;
   setAlwaysOnTop: (value: boolean) => Promise<void>;
   toggleVisibility: () => Promise<void>;
   bindToggleShortcut: (shortcut: string) => Promise<ShortcutBindResult>;
   setTransparent: (enabled: boolean) => Promise<void>;
+  focusMainWindow: () => Promise<void>;
+  openSettingsWindow: () => Promise<{ ok: boolean }>;
+  openShelfWindow: () => Promise<{ ok: boolean }>;
+  openNavigatorWindow: () => Promise<{ ok: boolean }>;
+  shelfOpenBook: (bookId: string) => Promise<{ ok: boolean }>;
+  navigatorJump: (offset: number) => Promise<{ ok: boolean }>;
+  probeGlobalShortcut: (shortcut: string) => Promise<ShortcutProbeResult>;
+  onAppStateUpdated: (callback: () => void) => () => void;
+  onDisplayMetricsChanged: (callback: () => void) => () => void;
+  onMainWindowBlur: (callback: () => void) => () => void;
 }
 
 declare global {

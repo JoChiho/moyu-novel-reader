@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
+  <description>
+    <title-info>
+      <book-title>摸鱼 FB2 导入测试</book-title>
+    </title-info>
+  </description>
+  <body>
+    <title>
+      <p>第一章</p>
+    </title>
+    <section>
+      <p>主角开始了冒险。</p>
+      <p>第二段内容。</p>
+    </section>
+  </body>
+</FictionBook>

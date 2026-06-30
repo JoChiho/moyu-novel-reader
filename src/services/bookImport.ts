@@ -1,16 +1,21 @@
-import type { Book } from "../types";
+import type { Book, BookReadOptions } from "../types";
 import {
-  platformPickAndReadTxt,
-  platformReadTextFile,
+  platformPickAndReadBook,
+  platformReadBookFile,
 } from "./platform";
 
-export async function pickAndReadTxt(): Promise<{
+export async function pickAndReadBook(
+  options: BookReadOptions = {},
+): Promise<{
   book: Book;
   content: string;
 } | null> {
-  return platformPickAndReadTxt();
+  return platformPickAndReadBook(options);
 }
 
-export async function reloadBookContent(book: Book): Promise<string> {
-  return platformReadTextFile(book.filePath);
+export async function reloadBookContent(
+  book: Book,
+  options: BookReadOptions = {},
+): Promise<string> {
+  return platformReadBookFile(book.filePath, options);
 }

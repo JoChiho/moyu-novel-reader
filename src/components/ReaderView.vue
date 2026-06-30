@@ -2,10 +2,19 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import {
   computeLayoutMetrics,
-  paginateFromOffset,
+  findPrevPageOffset,
+  paginateAtOffset,
   type TextMeasure,
 } from "../services/pagination";
-import { readerBackground } from "../utils/color";
+import {
+  buildPageCacheKey,
+  clearPageCache,
+  getCachedPage,
+  setCachedPage,
+  settingsLayoutHash,
+} from "../services/pageCache";
+import { platformFocusMainWindow } from "../services/platform";
+import { readerBackground, readerTextColor } from "../utils/color";
 import type { PageSlice, ReaderSettings } from "../types";
 
 const props = defineProps<{
@@ -27,7 +36,11 @@ const lineProbeRef = ref<HTMLElement | null>(null);
 const page = ref<PageSlice>({ start: 0, end: 0, lines: [] });
 
 const readerStyle = computed(() => ({
-  color: props.settings.textColor,
+  color: readerTextColor(
+    props.settings.textColor,
+    props.settings.transparentText,
+    props.settings.textOpacity,
+  ),
   backgroundColor: readerBackground(
     props.settings.backgroundColor,
     props.settings.transparentBackground,
@@ -78,13 +91,28 @@ function relayout() {
   const width = Math.max(40, el.clientWidth - pad * 2);
   const height = Math.max(40, el.clientHeight - pad * 2);
   const metrics = computeLayoutMetrics(width, height, lineHeightPx.value);
+  const settingsHash = settingsLayoutHash(props.settings);
+  const cacheKey = buildPageCacheKey(
+    props.charOffset,
+    metrics,
+    props.content.length,
+    settingsHash,
+  );
+  const cached = getCachedPage(cacheKey);
+  if (cached) {
+    page.value = cached;
+    return;
+  }
 
-  page.value = paginateFromOffset(
+  const slice = paginateAtOffset(
     props.content,
     props.charOffset,
     metrics,
     measure,
+    props.settings,
   );
+  setCachedPage(cacheKey, slice);
+  page.value = slice;
 }
 
 function getMetrics() {
@@ -114,20 +142,13 @@ function goPrev() {
   const ctx = getMetrics();
   if (!ctx) return;
 
-  let offset = 0;
-  let prevStart = 0;
-  while (offset < props.charOffset) {
-    const slice = paginateFromOffset(
-      props.content,
-      offset,
-      ctx.metrics,
-      ctx.measure,
-    );
-    if (slice.end <= offset) break;
-    if (slice.end >= props.charOffset) break;
-    prevStart = offset;
-    offset = slice.end;
-  }
+  const prevStart = findPrevPageOffset(
+    props.content,
+    props.charOffset,
+    ctx.metrics,
+    ctx.measure,
+    props.settings,
+  );
   emit("update:charOffset", prevStart);
   emit("prevPage");
 }
@@ -146,6 +167,12 @@ onMounted(async () => {
 onUnmounted(() => {
   observer?.disconnect();
 });
+
+watch(
+  () => [props.content, props.settings],
+  () => clearPageCache(),
+  { deep: true },
+);
 
 watch(
   () => [props.content, props.charOffset, props.settings],
@@ -167,6 +194,10 @@ function onContextMenu(event: MouseEvent) {
   emit("open-settings");
 }
 
+function onReaderPointerDown() {
+  void platformFocusMainWindow();
+}
+
 defineExpose({ goNext, goPrev, relayout });
 </script>
 
@@ -177,6 +208,7 @@ defineExpose({ goNext, goPrev, relayout });
     :style="readerStyle"
     @wheel="onWheel"
     @contextmenu="onContextMenu"
+    @pointerdown="onReaderPointerDown"
   >
     <span ref="measureRef" class="measure-span" aria-hidden="true"> </span>
     <p ref="lineProbeRef" class="line line-probe" :style="lineStyle">测</p>

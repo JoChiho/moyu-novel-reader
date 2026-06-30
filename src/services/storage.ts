@@ -3,6 +3,8 @@ import {
   DEFAULT_SETTINGS,
   type AppState,
   type Book,
+  type Bookmark,
+  type ChapterEntry,
   type ReaderSettings,
 } from "../types";
 import { toPlain } from "../utils/serialize";
@@ -20,6 +22,15 @@ function defaultState(): AppState {
   };
 }
 
+function normalizeBook(book: Book): Book {
+  return {
+    ...book,
+    bookmarks: book.bookmarks ?? [],
+    chapters: book.chapters ?? [],
+    fileMissing: book.fileMissing ?? false,
+  };
+}
+
 export async function loadAppState(): Promise<AppState> {
   const saved = await platformLoadAppState();
   if (!saved) return defaultState();
@@ -27,7 +38,7 @@ export async function loadAppState(): Promise<AppState> {
     ...defaultState(),
     ...saved,
     settings: { ...DEFAULT_SETTINGS, ...saved.settings },
-    books: saved.books ?? [],
+    books: (saved.books ?? []).map(normalizeBook),
   };
 }
 
@@ -84,4 +95,68 @@ export async function updateSettings(
   };
   await saveAppState(next);
   return next;
+}
+
+export async function updateBookMeta(
+  bookId: string,
+  patch: Partial<Pick<Book, "chapters" | "bookmarks" | "fileMissing" | "totalChars">>,
+  state: AppState,
+): Promise<AppState> {
+  const next = {
+    ...state,
+    books: state.books.map((b) =>
+      b.id === bookId ? { ...b, ...patch } : b,
+    ),
+  };
+  await saveAppState(next);
+  return next;
+}
+
+export async function addBookmark(
+  bookId: string,
+  charOffset: number,
+  label: string,
+  state: AppState,
+): Promise<AppState> {
+  const bookmark: Bookmark = {
+    id: crypto.randomUUID(),
+    charOffset,
+    label,
+    createdAt: Date.now(),
+  };
+  const next = {
+    ...state,
+    books: state.books.map((b) =>
+      b.id === bookId
+        ? { ...b, bookmarks: [...b.bookmarks, bookmark] }
+        : b,
+    ),
+  };
+  await saveAppState(next);
+  return next;
+}
+
+export async function removeBookmark(
+  bookId: string,
+  bookmarkId: string,
+  state: AppState,
+): Promise<AppState> {
+  const next = {
+    ...state,
+    books: state.books.map((b) =>
+      b.id === bookId
+        ? { ...b, bookmarks: b.bookmarks.filter((m) => m.id !== bookmarkId) }
+        : b,
+    ),
+  };
+  await saveAppState(next);
+  return next;
+}
+
+export async function updateBookChapters(
+  bookId: string,
+  chapters: ChapterEntry[],
+  state: AppState,
+): Promise<AppState> {
+  return updateBookMeta(bookId, { chapters }, state);
 }

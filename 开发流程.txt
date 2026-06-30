@@ -1,66 +1,99 @@
 摸鱼小说阅读器 — 开发流程与后续步骤
 =====================================
-技术栈：Electron + Vue 3 + TypeScript（纯本地，无后端，免 Visual Studio）
-文档版本：v0.1.0  |  更新：2026-06-30
+技术栈：Electron 35 + Vue 3 + TypeScript（纯本地，无后端，免 Visual Studio）
+文档版本：v0.3.0  |  更新：2026-06-30
+Git tag：v0.1.0（便携版初版）→ v0.3.0（本里程碑，见第十节）
 
 
 一、项目目标（核心需求摘要）
 --------------------------
 
 1. 窗口可随意拖拽、调整大小（无最小尺寸限制）；文字随窗口实时重排
-2. 窗口永远置顶；全局快捷键（可录制，如 Ctrl+Z）快速隐藏/显示
-3. 支持导入 .txt，多本书籍管理（UTF-8 / GBK 自动识别）
-4. 字号、文字色、背景色可自由调节；支持透明窗口摸鱼模式
-5. 滚轮 + 方向键 + J/K + 空格翻页
-6. 禁止半行/半字截断
-7. 强记忆：阅读进度、窗口位置大小、样式设置
+2. 窗口永远置顶；全局快捷键（可录制）快速隐藏/显示
+3. 支持导入多种本地小说格式，多本书籍管理（UTF-8 / GBK 自动/手动）
+4. 字号、文字色、背景色可自由调节；支持透明窗口摸鱼模式（真透视桌面）
+5. 滚轮 + 方向键 + 自定义键 + 空格翻页
+6. 禁止半行/半字截断；可选翻页保留上一页 n 行
+7. 强记忆：阅读进度、窗口位置大小、样式设置、书签与章节
 
 技术要求：
 - Electron + Vue 3 + TypeScript
 - 分页：ResizeObserver + DOM 实测折行（与屏幕渲染一致）
 - 持久化：electron-store（书架 + 设置 + 窗口 bounds）
-- 全局快捷键：Electron globalShortcut + ShortcutRecorder 按键录制
-- 文件：dialog.showOpenDialog + fs（iconv-lite GBK 回退）
+- 全局快捷键：Electron globalShortcut + ShortcutRecorder / PageKeyRecorder
+- 文件：dialog.showOpenDialog + fileReader.cjs（iconv-lite / mammoth / jszip 等）
+- Windows 无边框透明：winFrameless.cjs + dwmCaption.cjs（koffi 调 DWM）
 
 
-二、目前已完成变动总结（v0.0 → v0.1.1）
-----------------------------------------
+二、版本里程碑与 tag 记录
+------------------------
 
-【架构】
-  - 由 Tauri 迁移至 Electron（公司电脑无法装 MSVC / Visual Studio）
-  - 弃用 src-tauri/，主进程在 electron/main.cjs
-  - 全部数据本地存储，不连接任何后端
+【v0.1.0】tag 已打（2026-06 前后）
+  - Tauri → Electron 迁移完成
+  - TXT 导入、透明摸鱼、DOM 分页、快捷键录制
+  - 便携版 exe：release/摸鱼小说阅读器 0.1.0.exe
 
-【窗口与摸鱼体验】
-  - 无边框、透明窗口、可置顶
-  - 阅读时自动隐藏标题栏，仅保留文字与背景
-  - 鼠标移至顶部 / 右键 / Ctrl+S 唤出设置
-  - 透明窗口模式 + 背景不透明度滑块
-  - 窗口最小尺寸限制已移除（可缩到任意大小）
+【v0.3.0】tag 本里程碑（2026-06-30）
+  在 v0.1 基础上累计完成阶段 6～7 及 v0.3 专项（见第三节）。
+  测试：62 项全绿（Vitest 32 + electron node:test 30）
+  待办：npm run dist 重新打便携包后上传 Release（阶段 8）
 
-【导入与持久化】
-  - 修复 IPC「无法被克隆」：Vue 响应式对象转 plain JSON 再传输
-  - 修复文件对话框被置顶窗口遮挡
-  - GBK / UTF-8 智能读取
-  - 书架、阅读进度、窗口位置自动保存
 
-【快捷键】
-  - ShortcutRecorder：点击录制，Ctrl+Z 等自动识别并注册
-  - 注册失败时设置面板显示错误提示
+三、v0.3.0 已完成功能总结（按模块）
+----------------------------------
 
-【排版】
-  - Canvas 测量改为 DOM 实测，消除下半屏空白
-  - 去掉末尾空行填充；行高 DOM 探测
-  - 字号改为数字输入，最小 1px，无 12px 下限
+【架构 / 多窗口】
+  - 主窗口仅阅读区（#reader）；设置 / 书架 / 导航为独立子窗口
+    · electron/childWindows.cjs
+    · SettingsWindowApp / ShelfWindowApp / NavigatorWindowApp（hash 路由）
+  - 删除 TitleBar.vue；阅读时悬停顶栏 ReaderToolbar.vue（overlay）
+  - 顶部 8px→40px 拖拽区；阅读区 -webkit-app-region: drag
+  - IPC：open-settings/shelf/navigator-window、shelf-open-book、navigator-jump-offset
+  - app-state-updated 广播，子窗口与主窗口状态同步
+
+【导入与格式】electron/fileReader.cjs
+  - 扩展名：txt, md, html, rtf, fb2, epub, docx, doc
+  - 文本类：iconv-lite（GBK 回退）、HTML/RTF/FB2/EPUB（jszip）解析
+  - Word：mammoth（docx）、word-extractor（doc）
+  - normalizeBookText：可选合并空行（collapseBlankLines）
+  - fixtures + fileReader.test.cjs（21 项）
+
+【阅读与排版】
+  - 翻页保留上一页 n 行：carryOverLinesEnabled / carryOverLines（pagination.ts）
+  - 分页 LRU 缓存：pageCache.ts
+  - 多显示器 DPI：display-metrics-changed → relayout
+  - 透明文字：transparentText + textOpacity
+  - 章节识别：utils/chapters.ts；书签 Ctrl+B
+
+【设置与 UI】
+  - 设置面板：主题预设、编码、空行合并、翻页键录制、进度滑块
+  - 打开设置：顶栏 ⚙ / 右键阅读区 / Ctrl+,
+  - 书架：排序、搜索、独立窗口
+  - 导航：章节列表 + 书签跳转
+
+【窗口与摸鱼（Windows 专项）】
+  - 真透明：transparent: true + 窗口背景 #00000000（不用灰底/mica 妥协）
+  - electron/winFrameless.cjs：无边框策略、空 title、WM_INITMENU 防菜单
+  - electron/dwmCaption.cjs：DwmSetWindowAttribute 压制非客户区；
+    剥离 WS_CAPTION/SYSMENU；ExtendFrameIntoClientArea；聚焦强制重绘
+  - 不使用 titleBarOverlay（避免失焦顶栏 + 右上角系统蓝键）
+  - focus-main-window IPC：点击正文恢复聚焦 + restoreWindowsFrameOnFocus
+  - WM_ACTIVATE 钩子：激活时刷新 DWM 顶栏残留
+  - 依赖：koffi（Windows 原生 API）
+
+【托盘与快捷键】
+  - 系统托盘 tray-icon.png；显示/隐藏/退出
+  - 全局显隐快捷键可录制；翻页键可自定义
+  - shortcutConflict：全局快捷键探测 + 翻页键冲突校验
 
 【质量保障】
-  - Vitest 单元测试（shortcut / pagination / color / serialize 等）
-  - electron 主进程 node:test（shortcut / fileReader）
-  - 每次改动流程：npm run test → electron:dev 手测 → npm run build
+  - npm run test = vitest(32) + shortcut(2) + fileReader(21)
+                  + dwmCaption(2) + winFrameless(5) = 62 项
+  - scripts/create_test_docx.py / create_test_epub.py（测试素材）
 
 
-三、总体开发阶段（全流程顺序）
-------------------------------
+四、总体开发阶段（全流程顺序 · 2026-06-30 重评估）
+--------------------------------------------------
 
   阶段 0  环境准备与仓库初始化                    ✅
       ↓
@@ -74,126 +107,163 @@
       ↓
   阶段 5  本地验证与体验打磨                      ✅
       ↓
-  阶段 6  功能增强（v0.2）                        ⬅ 下一步
+  阶段 6  功能增强（Word/托盘/主题/书架）         ✅
       ↓
-  阶段 7  稳定性 / 性能优化
+  阶段 7  稳定性 / 性能 / 章节书签 / 子窗口         ✅
       ↓
-  阶段 8  打包发布
+  阶段 7b 多格式 + 翻页续行 + 工具栏重构            ✅  v0.3
       ↓
-  阶段 9  长期迭代
+  阶段 7c Windows 透明窗口 / 失焦顶栏治理           ⚠️  尽力而为（见第五节）
+      ↓
+  阶段 8  打包发布                                ⬜  下一步
+      ↓
+  阶段 9  长期迭代                                ⬜
 
 
-四、各阶段详细状态
-------------------
-
-【阶段 0】✅ 环境准备
-  Node.js 18+、npm install、无需 Rust/VS
-
-【阶段 1】✅ 项目结构
-  electron/          主进程（窗口、快捷键、文件、存储）
-  src/types/         Book / ReaderSettings / AppState
-  src/services/      storage / pagination / bookImport / platform
-  src/components/    ReaderView / TitleBar / SettingsPanel / ShortcutRecorder
-  src/utils/         shortcut / serialize / color / bookPath
-  src/composables/   useWindowVisibility / useGlobalShortcut
-  scripts/           phase5_validate.py、sample-novel.txt
-
-【阶段 2】✅ 窗口能力
-  无边框、透明、置顶、隐藏/显示、bounds 记忆、顶部拖拽条
-
-【阶段 3】✅ 动态分页
-  DOM measureText、charOffset 翻页、ResizeObserver 实时重排
-
-【阶段 4】✅ 功能闭环
-  TXT 导入、书架、设置面板、快捷键录制、toast 提示
-
-【阶段 5】✅ 体验打磨（本轮已完成项）
-  5.1 electron:dev 可启动（免 MSVC）                    ✅
-  5.2 修复导入失败、快捷键无法保存                       ✅
-  5.3 透明窗口 + 阅读时隐藏标题栏                        ✅
-  5.4 排版填满窗口（DOM 分页）                           ✅
-  5.5 移除窗口最小尺寸限制、字号自由设置                  ✅
-  5.6 单元测试 18 项                                    ✅
-  5.7 打 tag v0.1.0 / 便携版 exe                        ✅
-       产物：release/摸鱼小说阅读器 0.1.0.exe（约 74 MB，免安装便携版）
-
-【阶段 5】✅ 已完成（2026-06-30）
-
-【阶段 6】⬜ 功能增强 v0.2（下一步）
-  6.1 翻页快捷键可自定义（J/K/空格等）
-  6.2 编码手动选择（UTF-8 / GBK）
-  6.3 系统托盘（隐藏后托盘恢复）
-  6.4 进度条 / 跳转 / 章节识别
-  6.5 预设护眼主题一键切换
-  6.6 书架排序、搜索
-
-【阶段 7】⬜ 稳定性 / 性能
-  7.1 超大 TXT 分段加载 / 分页缓存
-  7.2 快捷键冲突检测增强
-  7.3 多显示器 / DPI 适配
-  7.4 文件被删/路径失效提示优化
-
-【阶段 8】⬜ 打包发布
-  8.1 npm run dist → release/ 便携 exe
-  8.2 用户快捷键说明
-  8.3 GitHub Release + tag
-
-【阶段 9】⬜ 长期迭代
-  跨平台、书签笔记、自动更新、更多书源格式
-
-
-五、日常开发工作流（强制顺序）
+五、已知限制与平台说明（重评估）
 ------------------------------
 
-  1. 确认阶段编号（对照第四节）
+【Windows 失焦顶栏】
+  - 根因：DWM 对 frameless + transparent 窗口在失焦时可能绘制非客户区装饰
+  - 已尝试：禁用 NC 渲染、COLOR_NONE、剥 caption 样式、WM_ACTIVATE 重绘、
+    点击正文 focus + forceRepaint；已移除 titleBarOverlay（解决右上角系统蓝块）
+  - 限制：部分 Win10/11 构建上仍可能偶发顶栏闪烁；属 Electron/DWM 已知类问题
+  - 不推荐回退：灰底/mica 假透明（牺牲真摸鱼透视）
+
+【聚焦与拖拽】
+  - 点击正文 → focusMainWindow + 全阅读区可 drag
+  - 失焦后顶栏视觉恢复依赖 restoreWindowsFrameOnFocus（若仍异常需报 Win 版本）
+
+【macOS / Linux】
+  - 主流程可用；winFrameless/dwmCaption 仅 win32 生效
+  - 未做专项透明顶栏测试
+
+【架构选择】
+  - 保留 Electron + Vue（非原生 WPF）；阅读区为 WebView 渲染，窗口层做平台差异化
+
+
+六、各阶段详细状态（文件索引）
+------------------------------
+
+【阶段 1～2】核心目录
+  electron/
+    main.cjs              主进程入口、IPC、托盘、主窗口
+    preload.cjs           渲染进程桥
+    childWindows.cjs      设置/书架/导航子窗口
+    fileReader.cjs        多格式读取
+    shortcut.cjs          全局快捷键
+    winFrameless.cjs      Windows 无边框策略
+    dwmCaption.cjs        Windows DWM 顶栏压制
+  src/
+    App.vue               主阅读窗口
+    *WindowApp.vue        子窗口入口
+    components/           ReaderView, ReaderToolbar, SettingsPanel, ...
+    services/             pagination, pageCache, storage, bookImport, platform
+    utils/                color, chapters, pageTurn, shortcutConflict, themes
+
+【阶段 7b】✅ v0.3 阅读体验
+  7b.1 多格式导入（md/html/rtf/fb2/epub）              ✅
+  7b.2 翻页保留 n 行                                    ✅
+  7b.3 主窗口纯阅读 + 悬停工具栏                        ✅
+  7b.4 子窗口：设置 / 书架 / 章节书签导航                 ✅
+  7b.5 透明文字、工具栏按钮样式项（设置内）              ✅
+
+【阶段 7c】⚠️ Windows 窗口 chrome
+  7c.1 真透明恢复（撤销灰底方案）                        ✅
+  7c.2 移除 titleBarOverlay（蓝角 + 色带）               ✅
+  7c.3 DWM + Win32 样式剥离                              ✅
+  7c.4 点击正文聚焦 + 拖拽修复                           ✅
+  7c.5 聚焦后顶栏视觉恢复（WM_ACTIVATE + 强制重绘）      ✅（待用户环境验收）
+  7c.6 失焦顶栏 100% 消失                                □ 受 DWM 限制，不保证
+
+【阶段 8】⬜ 打包发布（当前优先）
+  8.1 npm run dist → release/ 便携 exe（含 koffi 原生依赖）
+  8.2 更新用户快捷键说明（Ctrl+, 开设置；非 Ctrl+S）
+  8.3 GitHub Release + 附件 exe
+  8.4 手测清单见第七节（含 Windows 失焦/聚焦顶栏）
+
+【阶段 9】⬜ 长期迭代（建议优先级）
+  P1  失焦顶栏：针对用户 Win 版本做最后一轮 Win32 实验（可选）
+  P2  macOS 无边框透明体验对齐
+  P3  自动更新、更多书源、阅读统计
+  P4  跨平台安装包（dmg/AppImage）
+
+
+七、日常开发工作流（强制顺序）
+------------------------------
+
+  1. 确认阶段编号（对照第四节、第六节）
   2. 改代码
-  3. npm run test          ← 单元测试必须通过
+  3. npm run test          ← 62 项必须通过
   4. npm run electron:dev  ← 手动验证
   5. 自测清单：
-       - 导入 TXT 正常？
-       - 极小/极大窗口排版正常、无半行截断？
-       - 透明模式、标题栏隐藏、快捷键录制？
-       - 重启后进度/窗口/样式恢复？
+       【阅读】导入 txt/md/epub/docx；极小/极大窗口；无半行截断；续行 n 行
+       【窗口】拖拽（顶栏+正文）；置顶；全局显隐快捷键
+       【透明】0% 透视桌面；失焦→点正文：任务栏聚焦 + 顶栏视觉恢复
+       【子窗口】设置/书架/导航打开关闭；章节跳转；书签 Ctrl+B
+       【持久化】重启后进度、窗口位置、样式恢复
   6. npm run build
-  7. git commit → push
-  8. 更新本文件阶段状态
+  7. （发版时）npm run dist
+  8. git commit → tag → push
+  9. 更新本文件阶段状态
 
 
-六、关键命令
+八、关键命令
 ------------
 
   npm install
-  npm run test                 全部单元测试（必跑）
+  npm run test                 全部测试（62 项，必跑）
   npm run electron:dev         开发运行
   npm run build                前端构建
-  npm run dist                 测试 + 构建 + 便携版 exe
+  npm run dist                 测试 + 构建 + Windows 便携 exe
   npm run phase5               测试 + 构建 + 阶段脚本验证
 
 
-七、默认快捷键（当前）
---------------------
+九、默认快捷键（v0.3.0 当前）
+---------------------------
 
-  下一页       滚轮下 / → / ↓ / J / 空格
-  上一页       滚轮上 / ← / ↑ / K
+  下一页       滚轮下 / → / ↓ / J / 空格（下一页键可自定义）
+  上一页       滚轮上 / ← / ↑ / K（上一页键可自定义）
   隐藏/显示     Ctrl+`（设置中可录制修改）
-  打开设置      右键阅读区 / Ctrl+S / ,
-  阅读时标题栏   自动隐藏；鼠标移到窗口顶部临时显示
+  打开设置      右键阅读区 / Ctrl+, ；顶栏 ⚙
+  添加书签      Ctrl+B
+  书架/导航     顶栏「架」「导」按钮
+  阅读工具栏    鼠标移到窗口顶部显示；失焦自动隐藏
 
 
-八、阶段完成判定（DoD）
+十、阶段完成判定（DoD）
 ----------------------
 
-  v0.1.0（当前，tag 已打）：
+  v0.1.0（tag 已有）：
     ✅ electron:dev 稳定启动
     ✅ 导入 TXT、快捷键录制、透明摸鱼模式
     ✅ 排版填满窗口、无半行截断
-    ✅ 单元测试全绿
-    ✅ npm run dist 便携版已生成
+    ✅ 便携版 exe 已生成
 
-  v0.2：
-    □ 阶段 6 核心项交付
-    □ 大文件（>5MB）无明显卡顿
+  v0.3.0（tag 本里程碑，2026-06-30）：
+    ✅ 阶段 6～7 + 7b 功能闭环
+    ✅ 多格式导入、续行翻页、多窗口架构、章节书签
+    ✅ Windows 透明窗口专项治理（真透明 + 无 titleBarOverlay）
+    ✅ 62 项自动化测试全绿
+    □ npm run dist 便携包（阶段 8）
+    □ 用户环境验收：Win 失焦顶栏是否可接受
 
-  v1.0：
-    □ 阶段 7、8 完成
-    □ 文档齐全、可分发
+  v1.0（未来）：
+    □ 阶段 8 完成 + 文档齐全 + 可稳定分发
+    □ 跨平台基础验证
+
+
+十一、变更日志摘要（v0.1.0 → v0.3.0）
+------------------------------------
+
+  + 多格式：md / html / rtf / fb2 / epub / docx / doc
+  + 翻页保留上一页 n 行
+  + 主窗口纯阅读；设置/书架/导航子窗口
+  + ReaderToolbar 悬停顶栏（替代 TitleBar）
+  + 分页缓存、DPI 监听、快捷键冲突检测
+  + 章节自动识别、书签、导航跳转
+  + Windows：winFrameless + dwmCaption + koffi
+  + focus-main-window：点击正文恢复聚焦与顶栏
+  - 移除 TitleBar.vue
+  - 放弃 Windows 灰底/mica 假透明方案
+  - 放弃 titleBarOverlay（系统蓝角 + 失焦色带）

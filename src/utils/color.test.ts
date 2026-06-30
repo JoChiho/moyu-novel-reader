@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readerBackground, toRgba } from "./color";
+import { readerBackground, readerTextColor, toRgba } from "./color";
 
 describe("color", () => {
   it("converts hex to rgba", () => {
@@ -14,5 +14,19 @@ describe("color", () => {
 
   it("keeps hex when not transparent", () => {
     expect(readerBackground("#c7edcc", false, 80)).toBe("#c7edcc");
+  });
+
+  it("allows fully transparent background", () => {
+    expect(readerBackground("#c7edcc", true, 0)).toBe(
+      "rgba(199, 237, 204, 0)",
+    );
+  });
+
+  it("uses rgba when transparent text enabled", () => {
+    expect(readerTextColor("#3d3d3d", true, 50)).toBe("rgba(61, 61, 61, 0.5)");
+  });
+
+  it("allows fully transparent text", () => {
+    expect(readerTextColor("#3d3d3d", true, 0)).toBe("rgba(61, 61, 61, 0)");
   });
 });

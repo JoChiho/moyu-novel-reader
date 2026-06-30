@@ -61,4 +61,28 @@ function registerGlobalShortcut(globalShortcut, current, nextDisplayShortcut, ha
   return { success: true, electronShortcut };
 }
 
-module.exports = { toElectronShortcut, registerGlobalShortcut };
+/**
+ * @param {import("electron").GlobalShortcut} globalShortcut
+ * @param {string} displayShortcut
+ * @returns {{ available: boolean; electronShortcut: string; error?: string }}
+ */
+function probeGlobalShortcut(globalShortcut, displayShortcut) {
+  const electronShortcut = toElectronShortcut(displayShortcut);
+  if (!electronShortcut) {
+    return { available: true, electronShortcut: "" };
+  }
+
+  const ok = globalShortcut.register(electronShortcut, () => {});
+  if (!ok) {
+    return {
+      available: false,
+      electronShortcut,
+      error: `快捷键已被占用：${displayShortcut}`,
+    };
+  }
+
+  globalShortcut.unregister(electronShortcut);
+  return { available: true, electronShortcut };
+}
+
+module.exports = { toElectronShortcut, registerGlobalShortcut, probeGlobalShortcut };

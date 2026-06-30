@@ -20,13 +20,28 @@ export function toRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+function clampOpacityPercent(opacityPercent: number): number {
+  return Math.min(100, Math.max(0, opacityPercent));
+}
+
 export function readerBackground(
   hex: string,
   transparentWindow: boolean,
   opacityPercent: number,
 ): string {
   if (transparentWindow) {
-    return toRgba(hex, Math.min(100, Math.max(0, opacityPercent)) / 100);
+    return toRgba(hex, clampOpacityPercent(opacityPercent) / 100);
+  }
+  return hex;
+}
+
+export function readerTextColor(
+  hex: string,
+  transparentText: boolean,
+  opacityPercent: number,
+): string {
+  if (transparentText) {
+    return toRgba(hex, clampOpacityPercent(opacityPercent) / 100);
   }
   return hex;
 }
