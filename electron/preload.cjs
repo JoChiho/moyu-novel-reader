@@ -43,4 +43,11 @@ contextBridge.exposeInMainWorld("moyu", {
     ipcRenderer.on("main-window-wheel", handler);
     return () => ipcRenderer.removeListener("main-window-wheel", handler);
   },
+  getMoyuStats: () => ipcRenderer.invoke("get-moyu-stats"),
+  resetMoyuStats: () => ipcRenderer.invoke("reset-moyu-stats"),
+  onMoyuStatsTick: (callback) => {
+    const handler = (_event, payload) => callback(payload);
+    ipcRenderer.on("moyu-stats-tick", handler);
+    return () => ipcRenderer.removeListener("moyu-stats-tick", handler);
+  },
 });

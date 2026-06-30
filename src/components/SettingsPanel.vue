@@ -5,6 +5,7 @@ import { EYE_CARE_THEMES } from "../utils/themes";
 import ShortcutRecorder from "./ShortcutRecorder.vue";
 import PageKeyRecorder from "./PageKeyRecorder.vue";
 import UserManualDialog from "./UserManualDialog.vue";
+import MoyuStatsPanel from "./MoyuStatsPanel.vue";
 
 const manualOpen = ref(false);
 
@@ -320,6 +321,11 @@ function onProgressInput(event: Event) {
           支持 TXT / MD / HTML / RTF / FB2 / EPUB / Word；纯文本自动对比 UTF-8/GBK
         </p>
       </section>
+
+      <MoyuStatsPanel
+        :settings="settings"
+        @update:settings="emit('update:settings', $event)"
+      />
 
       <section class="section">
         <h3>快捷键</h3>

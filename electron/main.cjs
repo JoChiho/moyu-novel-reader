@@ -6,6 +6,7 @@ const {
   ipcMain,
   Menu,
   nativeImage,
+  powerMonitor,
   screen,
   Tray,
 } = require("electron");
@@ -32,11 +33,14 @@ const {
   restoreWindowsFrameOnFocus,
   setFrameRestoreSuspended,
 } = require("./winFrameless.cjs");
+const { createMoyuTimer } = require("./moyuTimer.cjs");
 
 const store = new Store({ name: "moyu-reader-state" });
 const STORE_KEY = "appState";
 
 let mainWindow = null;
+/** @type {ReturnType<typeof createMoyuTimer> | null} */
+let moyuTimer = null;
 let tray = null;
 let toggleShortcutElectron = "Control+`";
 /** @type {import("electron").Rectangle | null} */
@@ -75,6 +79,39 @@ function restoreWindowBounds(win) {
   if (bounds && typeof bounds === "object") {
     win.setBounds(bounds);
   }
+}
+
+function getMoyuTotalMs() {
+  const state = store.get(STORE_KEY) ?? {};
+  return state.moyuStats?.totalVisibleMs ?? 0;
+}
+
+function setMoyuTotalMs(ms) {
+  const state = store.get(STORE_KEY) ?? {};
+  store.set(STORE_KEY, {
+    ...state,
+    moyuStats: {
+      totalVisibleMs: Math.max(0, Math.round(Number(ms) || 0)),
+    },
+  });
+}
+
+function broadcastMoyuStatsTick(snapshot) {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) {
+      win.webContents.send("moyu-stats-tick", snapshot);
+    }
+  }
+}
+
+function initMoyuTimer(win) {
+  moyuTimer = createMoyuTimer({
+    getTotalMs: getMoyuTotalMs,
+    setTotalMs: setMoyuTotalMs,
+    getWindow: () => mainWindow,
+    onTick: broadcastMoyuStatsTick,
+  });
+  moyuTimer.attachWindow(win);
 }
 
 /** Height of the top chrome row (must match CSS .reader-chrome). */
@@ -198,6 +235,8 @@ function createWindow() {
   });
 
   mainWindow.on("close", () => saveWindowBounds());
+
+  initMoyuTimer(mainWindow);
 }
 
 async function pickAndReadBook(encoding = "auto", collapseBlankLines = true) {
@@ -431,6 +470,29 @@ app.whenReady().then(() => {
     });
   });
 
+  ipcMain.handle("get-moyu-stats", () => {
+    return moyuTimer?.snapshot() ?? {
+      totalVisibleMs: getMoyuTotalMs(),
+      currentSessionMs: 0,
+      combinedVisibleMs: getMoyuTotalMs(),
+      isRunning: false,
+    };
+  });
+
+  ipcMain.handle("reset-moyu-stats", (event) => {
+    moyuTimer?.resetStats();
+    broadcastAppStateUpdated(event.sender);
+    return { ok: true };
+  });
+
+  powerMonitor.on("suspend", () => {
+    moyuTimer?.onPowerSuspend();
+  });
+
+  powerMonitor.on("resume", () => {
+    moyuTimer?.onPowerResume();
+  });
+
   ipcMain.handle("set-frame-restore-suspended", (_e, value) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
 
@@ -460,6 +522,8 @@ app.whenReady().then(() => {
 });
 
 app.on("will-quit", () => {
+  moyuTimer?.flush();
+  moyuTimer?.stopTick();
   globalShortcut.unregisterAll();
 });
 

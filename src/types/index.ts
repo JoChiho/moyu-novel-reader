@@ -57,6 +57,21 @@ export interface ReaderSettings {
   prevPageKey: string;
   carryOverLinesEnabled: boolean;
   carryOverLines: number;
+  salaryEnabled: boolean;
+  salaryMonthly: number;
+  salaryWorkDaysPerMonth: number;
+  salaryHoursPerDay: number;
+}
+
+export interface MoyuStats {
+  totalVisibleMs: number;
+}
+
+export interface MoyuStatsSnapshot {
+  totalVisibleMs: number;
+  currentSessionMs: number;
+  combinedVisibleMs: number;
+  isRunning: boolean;
 }
 
 export interface AppState {
@@ -64,6 +79,7 @@ export interface AppState {
   books: Book[];
   settings: ReaderSettings;
   lastBookId: string | null;
+  moyuStats?: MoyuStats;
 }
 
 export interface PageSlice {
@@ -108,6 +124,14 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   prevPageKey: "K",
   carryOverLinesEnabled: false,
   carryOverLines: 2,
+  salaryEnabled: true,
+  salaryMonthly: 0,
+  salaryWorkDaysPerMonth: 22,
+  salaryHoursPerDay: 8,
 };
 
-export const APP_STATE_VERSION = 6;
+export const DEFAULT_MOYU_STATS: MoyuStats = {
+  totalVisibleMs: 0,
+};
+
+export const APP_STATE_VERSION = 7;

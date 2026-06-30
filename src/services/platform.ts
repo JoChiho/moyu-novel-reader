@@ -1,4 +1,4 @@
-import type { AppState, Book, BookReadOptions } from "../types";
+import type { AppState, Book, BookReadOptions, MoyuStatsSnapshot } from "../types";
 import type { ShortcutBindResult } from "../types/electron";
 import { toPlain } from "../utils/serialize";
 
@@ -140,4 +140,18 @@ export function platformOnMainWindowWheel(
   callback: (payload: { deltaY: number }) => void,
 ): () => void {
   return bridge().onMainWindowWheel(callback);
+}
+
+export async function platformGetMoyuStats(): Promise<MoyuStatsSnapshot> {
+  return bridge().getMoyuStats();
+}
+
+export async function platformResetMoyuStats(): Promise<void> {
+  await bridge().resetMoyuStats();
+}
+
+export function platformOnMoyuStatsTick(
+  callback: (payload: MoyuStatsSnapshot) => void,
+): () => void {
+  return bridge().onMoyuStatsTick(callback);
 }

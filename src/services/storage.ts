@@ -1,5 +1,6 @@
 import {
   APP_STATE_VERSION,
+  DEFAULT_MOYU_STATS,
   DEFAULT_SETTINGS,
   type AppState,
   type Book,
@@ -19,6 +20,7 @@ function defaultState(): AppState {
     books: [],
     settings: { ...DEFAULT_SETTINGS },
     lastBookId: null,
+    moyuStats: { ...DEFAULT_MOYU_STATS },
   };
 }
 
@@ -39,6 +41,10 @@ export async function loadAppState(): Promise<AppState> {
     ...saved,
     settings: { ...DEFAULT_SETTINGS, ...saved.settings },
     books: (saved.books ?? []).map(normalizeBook),
+    moyuStats: {
+      ...DEFAULT_MOYU_STATS,
+      ...saved.moyuStats,
+    },
   };
 }
 

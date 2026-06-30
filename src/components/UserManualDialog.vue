@@ -97,6 +97,16 @@ const defaults = DEFAULT_SETTINGS;
         </section>
 
         <section class="manual-section">
+          <h3>摸鱼计算器</h3>
+          <ul>
+            <li>设置面板内可查看本次 / 累计摸鱼时长</li>
+            <li>主窗口可见时计时；隐藏（快捷键或托盘）后暂停</li>
+            <li>可填写月薪、工作天数、每日工时，自动换算等价金额</li>
+            <li>统计仅存本机，可一键清零</li>
+          </ul>
+        </section>
+
+        <section class="manual-section">
           <h3>可自定义的设置项</h3>
           <dl class="manual-dl">
             <dt>阅读样式</dt>

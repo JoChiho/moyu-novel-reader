@@ -1,4 +1,4 @@
-import type { AppState, Book, TextEncoding } from "./index";
+import type { AppState, Book, MoyuStatsSnapshot, TextEncoding } from "./index";
 
 export interface ImportBookResult {
   ok: boolean;
@@ -55,6 +55,9 @@ export interface MoyuBridge {
   onDisplayMetricsChanged: (callback: () => void) => () => void;
   onMainWindowBlur: (callback: () => void) => () => void;
   onMainWindowWheel: (callback: (payload: { deltaY: number }) => void) => () => void;
+  getMoyuStats: () => Promise<MoyuStatsSnapshot>;
+  resetMoyuStats: () => Promise<{ ok: boolean }>;
+  onMoyuStatsTick: (callback: (payload: MoyuStatsSnapshot) => void) => () => void;
 }
 
 declare global {

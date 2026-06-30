@@ -13,7 +13,7 @@
     "electron:dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "electron": "electron .",
     "dist": "npm run test && npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable && node scripts/verify-dist.cjs",
-    "test": "vitest run && node --test electron/shortcut.test.cjs && node --test electron/fileReader.test.cjs && node --test electron/dwmCaption.test.cjs && node --test electron/winFrameless.test.cjs",
+    "test": "vitest run && node --test electron/shortcut.test.cjs && node --test electron/fileReader.test.cjs && node --test electron/dwmCaption.test.cjs && node --test electron/winFrameless.test.cjs && node --test electron/moyuTimer.test.cjs",
     "test:watch": "vitest",
     "validate:phase5": "python scripts/phase5_validate.py",
     "phase5": "npm run test && npm run build && npm run validate:phase5"
@@ -61,6 +61,7 @@
       "target": [
         "portable"
       ],
+      "icon": "electron/tray-icon.png",
       "executableName": "moyu-novel-reader",
       "artifactName": "moyu-novel-reader-${version}-portable.${ext}",
       "signAndEditExecutable": false

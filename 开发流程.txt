@@ -1,8 +1,8 @@
 摸鱼小说阅读器 — 开发流程与后续步骤
 =====================================
 技术栈：Electron 35 + Vue 3 + TypeScript（纯本地，无后端，免 Visual Studio）
-文档版本：v0.3.0  |  更新：2026-06-30
-Git tag：v0.1.0（便携版初版）→ v0.3.0（本里程碑，见第十节）
+文档版本：v0.4.0-plan  |  更新：2026-06-30
+Git tag：v0.1.0 → v0.3.0（已发布）→ v0.4.0（规划中，见第十二节）
 
 
 一、项目目标（核心需求摘要）
@@ -48,7 +48,7 @@ Git tag：v0.1.0（便携版初版）→ v0.3.0（本里程碑，见第十节）
     · SettingsWindowApp / ShelfWindowApp / NavigatorWindowApp（hash 路由）
   - 删除 TitleBar.vue；阅读时悬停顶栏 ReaderToolbar.vue（overlay）
   - Grid 布局：顶栏 40px + 阅读区；顶栏左侧拖动手柄
-  - 阅读区 Alt+拖动（原生 drag region）；滚轮翻页（capture 监听）
+  - 阅读区 Alt+拖动（原生 drag region）；滚轮翻页（主进程 before-input-event 转发）
   - IPC：open-settings/shelf/navigator-window、shelf-open-book、navigator-jump-offset
   - app-state-updated 广播，子窗口与主窗口状态同步
 
@@ -122,7 +122,9 @@ Git tag：v0.1.0（便携版初版）→ v0.3.0（本里程碑，见第十节）
       ↓
   阶段 8  打包发布                                ✅  已完成（2026-06-30）
       ↓
-  阶段 9  长期迭代                                ⬜
+  阶段 9  v0.4 新功能（自适应文字色 + 摸鱼计算器）  ⬜  下一步
+      ↓
+  阶段 10 长期迭代                               ⬜
 
 
 五、已知限制与平台说明（重评估）
@@ -183,16 +185,20 @@ Git tag：v0.1.0（便携版初版）→ v0.3.0（本里程碑，见第十节）
   7c.5 聚焦后顶栏视觉恢复（WM_ACTIVATE + 强制重绘）      ✅（待用户环境验收）
   7c.6 失焦顶栏 100% 消失                                □ 受 DWM 限制，不保证
 
-【阶段 8】⬜ 打包发布（当前优先）
-  8.1 npm run dist → release/ 便携 exe（含 koffi 原生依赖）
-  8.2 更新用户快捷键说明（Ctrl+, 开设置；非 Ctrl+S）
-  8.3 GitHub Release + 附件 exe
-  8.4 手测清单见第七节（含 Windows 失焦/聚焦顶栏）
+【阶段 8】✅ 打包发布
+  8.1 npm run dist → release/moyu-novel-reader-0.3.0-portable.exe   ✅
+  8.2 package.json 恢复完整；verify-dist 校验产物                    ✅
+  8.3 便携单文件可分发；解压版 win-unpacked 用于调试                  ✅
+  8.4 GitHub Release 附件上传（用户手动）                            □
 
-【阶段 9】⬜ 长期迭代（建议优先级）
+【阶段 9】⬜ v0.4 新功能（见第十二节完整方案）
+  9a  自适应文字颜色（透明背景下随桌面明暗切换）                    ⬜
+  9b  摸鱼计算器（可见时长统计 + 薪资换算）                          ⬜
+
+【阶段 10】⬜ 长期迭代（建议优先级）
   P1  失焦顶栏：针对用户 Win 版本做最后一轮 Win32 实验（可选）
   P2  macOS 无边框透明体验对齐
-  P3  自动更新、更多书源、阅读统计
+  P3  自动更新、更多书源、阅读统计图表
   P4  跨平台安装包（dmg/AppImage）
 
 
@@ -209,6 +215,7 @@ Git tag：v0.1.0（便携版初版）→ v0.3.0（本里程碑，见第十节）
        【透明】0% 透视桌面；失焦→点正文：任务栏聚焦 + 顶栏视觉恢复
        【子窗口】设置/书架/导航打开关闭；章节跳转；书签 Ctrl+B
        【持久化】重启后进度、窗口位置、样式恢复
+       【v0.4】摸鱼计时 hide/show 正确；薪资换算；自动文字色黑/白壁纸
   6. npm run build
   7. （发版时）npm run dist
   8. git commit → tag → push
@@ -257,8 +264,13 @@ Git tag：v0.1.0（便携版初版）→ v0.3.0（本里程碑，见第十节）
     ✅ npm run dist → release/moyu-novel-reader-0.3.0-portable.exe（约 75 MB）
     □ 用户环境验收：Win 失焦顶栏是否可接受
 
+  v0.4.0（规划中）：
+    □ 摸鱼计算器：可见时长 + 薪资换算
+    □ 自适应文字对比度（透明模式下）
+    □ 说明书更新 + 便携包发布
+
   v1.0（未来）：
-    □ 阶段 8 完成 + 文档齐全 + 可稳定分发
+    □ 阶段 8～9 完成 + 文档齐全 + 可稳定分发
     □ 跨平台基础验证
 
 
@@ -276,3 +288,233 @@ Git tag：v0.1.0（便携版初版）→ v0.3.0（本里程碑，见第十节）
   - 移除 TitleBar.vue
   - 放弃 Windows 灰底/mica 假透明方案
   - 放弃 titleBarOverlay（系统蓝角 + 失焦色带）
+
+
+十二、v0.4.0 新功能可行性评估与开发方案（2026-06-30）
+----------------------------------------------------
+
+本节回应两项新需求，给出「能否做 / 怎么做 / 做到什么程度」，
+并作为阶段 9 的完整实施蓝图。目标版本：v0.4.0。
+
+
+（一）需求 A：透明背景下文字颜色随桌面明暗自动切换
+------------------------------------------------
+
+【用户期望】
+  开启透明窗口后，透视到的桌面偏黑 → 文字自动变白；
+  桌面偏白 → 文字自动变黑。
+
+【结论】可实现，建议作为「自适应对比度」功能；需设合理预期，非 100% 像素级精确。
+
+【技术可行性】★★★★☆（中高）
+
+  能做到：
+  · 在透明摸鱼模式开启时，周期性估算窗口后方屏幕区域的平均亮度
+  · 亮度低于阈值 → 使用浅色字（如 #f5f5f5）；高于阈值 → 深色字（如 #1a1a1a）
+  · 窗口移动、换壁纸、切换显示器后可重新采样（可防抖，避免闪烁）
+
+  难点与限制（必须在说明书中写明）：
+  · Electron 渲染层无法直接「读取透明像素后面的桌面」，必须靠主进程截屏采样
+  · 窗口置顶且覆盖桌面时，截屏需裁切窗口所在显示器区域；采样的是「该区域
+    当前画面」，若后方是彩色壁纸/图标/视频，会得到混合色而非纯黑/纯白
+  · 周期性截屏有性能开销（建议 1.5～3 秒一次，仅在 autoContrast 开启时）
+  · 阅读区若使用不透明背景色/高不透明度，后方桌面影响变小，自适应效果减弱
+  · 多显示器、HDR、远程桌面等场景需额外测试
+
+【推荐实现路径（分两步）】
+
+  Step A — MVP（v0.4.0 必做）
+  ─────────────────────────
+  1. 设置项 ReaderSettings 扩展：
+       autoTextContrast: boolean        // 开关，默认 false
+       autoTextContrastThreshold: number // 亮度阈值 0～255，默认 128
+  2. 主进程 electron/desktopLuminance.cjs（或同类模块）：
+       · 使用 desktopCapturer / 显示器区域截图（npm 备选：node-screenshots）
+       · 根据 mainWindow.getBounds() 取窗口中心附近 N×N 像素网格
+       · 计算相对亮度：Y = 0.299R + 0.587G + 0.114B
+       · 返回 { luminance, suggestLightText: boolean }
+  3. IPC：sample-desktop-luminance → 渲染进程
+  4. 触发时机：
+       · transparentBackground === true 且 autoTextContrast === true
+       · 窗口 show / move / resize / display-metrics-changed
+       · 定时器兜底（2s，窗口可见且未 hide 时）
+  5. 渲染进程 utils/color.ts 增加 resolveAutoTextColor(luminance) 
+     ReaderView 在自动模式下覆盖 settings.textColor（不写入持久化手动色）
+  6. 设置面板：开关 + 「检测到深色/浅色桌面」预览 + 手动阈值滑块（高级）
+
+  Step B — 增强（v0.4.x 可选）
+  ─────────────────────────
+  · 仅采样窗口四边透明环带（避开中间文字区）
+  · 壁纸文件平均色作为冷启动初值（Windows 注册表读壁纸路径）
+  · 滞后区间（hysteresis）防止阈值附近来回跳色
+
+【涉及文件（预估）】
+  electron/desktopLuminance.cjs      新建
+  electron/main.cjs                  IPC + 定时采样 + 窗口事件
+  electron/preload.cjs               bridge
+  src/types/index.ts                 设置字段 + APP_STATE_VERSION → 7
+  src/utils/color.ts                 亮度 → 文字色
+  src/components/SettingsPanel.vue   开关与说明
+  src/components/ReaderView.vue      应用自动文字色
+  src/services/platform.ts           IPC 封装
+  electron/desktopLuminance.test.cjs 单元测试（亮度公式、阈值逻辑）
+
+【验收标准（DoD）】
+  □ 透明模式 + 自动对比度开：黑桌面壁纸前文字可读（浅色字）
+  □ 白/浅色壁纸前文字可读（深色字）
+  □ 关闭自动对比度后恢复用户手动设置的文字色
+  □ 非透明模式不触发采样（零额外开销）
+  □ 说明书补充限制说明
+
+
+（二）需求 B：摸鱼计算器（可见时长 + 薪资换算）
+----------------------------------------------
+
+【用户期望】
+  · 主窗口「未隐藏」期间累计摸鱼时长
+  · 界面展示：本次时长、历史总时长
+  · 用户设定工资后，自动换算「相当于赚了/亏了多少钱」
+
+【结论】完全可实现，难度低，建议 v0.4.0 优先交付（先于或并行于需求 A）。
+
+【技术可行性】★★★★★（高）
+
+  现有基础：
+  · main.cjs 已有 mainWindow.hide() / show()（toggleWindowVisibility）
+  · 托盘、全局快捷键、blur 事件均已存在
+  · electron-store 持久化成熟
+
+  计时规则（建议写入产品说明）：
+  · 仅统计【主阅读窗口可见】时长（isVisible() === true）
+  · hide() / 全局快捷键隐藏 / 托盘「隐藏窗口」→ 暂停计时
+  · show() / 快捷键显示 / 托盘「显示窗口」→ 继续计时
+  · 子窗口（设置/书架/导航）打开不影响计时（主窗口仍可见）
+  · 系统休眠 powerMonitor('suspend') 暂停；resume 时若仍可见则继续
+  · 退出应用前 flush 当前会话到累计值
+
+【数据模型扩展】
+
+  // AppState 顶层或 settings 旁
+  interface MoyuStats {
+    totalVisibleMs: number;      // 历史累计摸鱼毫秒
+    lastSessionStartAt: number | null; // 仅运行时，可不持久化
+  }
+
+  // ReaderSettings 或独立 MoyuSalarySettings
+  interface MoyuSalarySettings {
+    salaryEnabled: boolean;           // 是否显示金额
+    salaryMonthly: number;            // 月薪（元），默认 0
+    salaryWorkDaysPerMonth: number;   // 每月工作天数，默认 22
+    salaryHoursPerDay: number;        // 每日工时，默认 8
+  }
+
+  金额公式：
+    时薪 = salaryMonthly / (salaryWorkDaysPerMonth × salaryHoursPerDay)
+    等价金额 = (totalVisibleMs / 3_600_000) × 时薪
+    本次金额 = (currentSessionMs / 3_600_000) × 时薪
+
+【推荐实现路径】
+
+  Step 1 — 主进程计时器（权威时钟）
+  ─────────────────────────
+  electron/moyuTimer.cjs：
+    · startSession(win) / pauseSession() / flushSession(store)
+    · getSnapshot() → { totalVisibleMs, currentSessionMs, isRunning }
+    · 监听：mainWindow show/hide/close、app before-quit、powerMonitor suspend/resume
+
+  Step 2 — 持久化
+  ─────────────────────────
+  · store 键：moyuStats（或并入 appState.moyuStats）
+  · APP_STATE_VERSION 升级时迁移默认值 { totalVisibleMs: 0 }
+
+  Step 3 — UI（设置面板新分区「摸鱼计算器」）
+  ─────────────────────────
+  · 本次摸鱼：HH:MM:SS（实时刷新，1s interval 或 IPC 推送）
+  · 累计摸鱼：X 天 X 小时 X 分
+  · 等价金额：¥ XX.XX（salaryEnabled 且月薪 > 0 时显示）
+  · 输入：月薪、工作天数、每日工时
+  · 按钮：「清零统计」（需二次确认）
+  · 可选：顶栏工具栏迷你指示（如 🐟 12:34）
+
+  Step 4 — IPC
+  ─────────────────────────
+  · get-moyu-stats        → 读快照
+  · reset-moyu-stats      → 清零
+  · on-moyu-stats-tick    → 主进程每秒 push（仅窗口可见时）
+
+  Step 5 — 测试
+  ─────────────────────────
+  electron/moyuTimer.test.cjs：
+    · show → hide 累计正确
+    · 多次会话累加
+    · 时薪/金额公式
+    · suspend 不重复计时
+
+【涉及文件（预估）】
+  electron/moyuTimer.cjs             新建
+  electron/main.cjs                  挂载计时器
+  electron/preload.cjs               bridge
+  src/types/index.ts                 MoyuStats + 薪资字段
+  src/components/MoyuStatsPanel.vue    新建（或并入 SettingsPanel）
+  src/components/SettingsPanel.vue   入口 Tab / 折叠区
+  src/components/UserManualDialog.vue  补充说明
+  src/services/platform.ts           IPC
+
+【验收标准（DoD）】
+  □ 窗口显示 60s 后隐藏，累计约 +60s（误差 < 2s）
+  □ 重启应用后累计时长保留
+  □ 月薪 22000、22 天 × 8 小时 → 时薪 125 元；摸鱼 1 小时显示 ¥125.00
+  □ 清零后累计归零
+  □ 说明书与设置 hint 一致
+
+
+（三）v0.4.0 推荐实施顺序与排期
+------------------------------
+
+  优先级    模块              工期估    依赖
+  ─────────────────────────────────────────────
+  P0        9b 摸鱼计算器      1～2 天   无
+  P1        9a 自适应文字色    2～4 天   透明模式、主进程截屏
+  P2        文档 + 说明书      0.5 天    9a + 9b
+  P3        npm run dist 发版  0.5 天    全量测试通过
+
+  建议 tag：v0.4.0
+  测试目标：在 62 项基础上 + moyuTimer.test + desktopLuminance.test（约 +8～12 项）
+
+
+（四）阶段 9 任务拆解清单（开发时逐项勾选）
+------------------------------------------
+
+  【9b 摸鱼计算器】
+  ✅ 9b.1  electron/moyuTimer.cjs + 主进程挂载
+  ✅ 9b.2  AppState / store 字段与版本迁移（APP_STATE_VERSION 7）
+  ✅ 9b.3  IPC + platform.ts + electron.d.ts
+  ✅ 9b.4  SettingsPanel / MoyuStatsPanel UI
+  ✅ 9b.5  薪资输入校验（非负数）
+  ✅ 9b.6  说明书更新
+  ✅ 9b.7  moyuTimer.test.cjs + moyuSalary.test.ts
+  □ 9b.8  手测：隐藏/显示/托盘/休眠场景
+
+  【9a 自适应文字色】
+  □ 9a.1  electron/desktopLuminance.cjs 采样原型
+  □ 9a.2  IPC sample-desktop-luminance
+  □ 9a.3  ReaderSettings.autoTextContrast 字段
+  □ 9a.4  ReaderView 动态文字色 + 防抖
+  □ 9a.5  SettingsPanel 开关与阈值
+  □ 9a.6  非透明模式禁用逻辑
+  □ 9a.7  desktopLuminance.test.cjs
+  □ 9a.8  手测：黑/白壁纸、拖窗跨区、性能可接受
+
+  【9 发版】
+  □ 9.9   npm run test 全绿
+  □ 9.10  npm run dist + verify-dist
+  □ 9.11  git tag v0.4.0 + Release 说明
+
+
+（五）风险登记
+--------------
+
+  R1  自适应色在复杂壁纸上频繁切换        → 滞后阈值 + 降低采样频率
+  R2  截屏权限/杀毒软件拦截               → 仅本地截屏、说明书说明
+  R3  摸鱼统计被用户误解为「专注时长」      → UI 文案写清「窗口可见即计入」
+  R4  薪资为敏感数据                      → 仅存本机 electron-store，不上传
