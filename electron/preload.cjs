@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld("moyu", {
     ipcRenderer.invoke("bind-toggle-shortcut", shortcut),
   setTransparent: (enabled) => ipcRenderer.invoke("set-transparent", enabled),
   focusMainWindow: () => ipcRenderer.invoke("focus-main-window"),
+  moveMainWindow: (dx, dy) => ipcRenderer.invoke("move-main-window", dx, dy),
+  setFrameRestoreSuspended: (value) =>
+    ipcRenderer.invoke("set-frame-restore-suspended", value),
   openSettingsWindow: () => ipcRenderer.invoke("open-settings-window"),
   openShelfWindow: () => ipcRenderer.invoke("open-shelf-window"),
   openNavigatorWindow: () => ipcRenderer.invoke("open-navigator-window"),

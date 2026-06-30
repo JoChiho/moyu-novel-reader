@@ -93,6 +93,32 @@ function loadNativeApis() {
 }
 
 /**
+ * Keep outer window size stable across Win32 frame recalculations.
+ * @param {import("electron").BrowserWindow | null | undefined} win
+ * @param {() => unknown} fn
+ */
+function withPreservedBounds(win, fn) {
+  if (!win || win.isDestroyed()) {
+    return fn();
+  }
+
+  const bounds = win.getBounds();
+  const result = fn();
+  if (!win.isDestroyed()) {
+    const current = win.getBounds();
+    if (current.width !== bounds.width || current.height !== bounds.height) {
+      win.setBounds({
+        x: current.x,
+        y: current.y,
+        width: bounds.width,
+        height: bounds.height,
+      });
+    }
+  }
+  return result;
+}
+
+/**
  * @param {import("electron").BrowserWindow} win
  * @returns {Buffer | null}
  */
@@ -167,25 +193,27 @@ function stripSystemCaptionStyles(win) {
     return false;
   }
 
-  try {
-    const style = Number(apis.GetWindowLongPtrW(handle, GWL_STYLE));
-    const stripped =
-      style &
-      ~(WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
-    apis.SetWindowLongPtrW(handle, GWL_STYLE, stripped);
-    apis.SetWindowPos(
-      handle,
-      null,
-      0,
-      0,
-      0,
-      0,
-      SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
-    );
-    return true;
-  } catch {
-    return false;
-  }
+  return withPreservedBounds(win, () => {
+    try {
+      const style = Number(apis.GetWindowLongPtrW(handle, GWL_STYLE));
+      const stripped =
+        style &
+        ~(WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
+      apis.SetWindowLongPtrW(handle, GWL_STYLE, stripped);
+      apis.SetWindowPos(
+        handle,
+        null,
+        0,
+        0,
+        0,
+        0,
+        SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  });
 }
 
 /**
@@ -277,27 +305,29 @@ function forceRepaintWindow(win) {
     return false;
   }
 
-  try {
-    apis.RedrawWindow(
-      handle,
-      null,
-      null,
-      RDW_INVALIDATE | RDW_FRAME | RDW_UPDATENOW | RDW_ALLCHILDREN,
-    );
-    apis.DwmFlush();
-    apis.SetWindowPos(
-      handle,
-      null,
-      0,
-      0,
-      0,
-      0,
-      SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
-    );
-    return true;
-  } catch {
-    return false;
-  }
+  return withPreservedBounds(win, () => {
+    try {
+      apis.RedrawWindow(
+        handle,
+        null,
+        null,
+        RDW_INVALIDATE | RDW_FRAME | RDW_UPDATENOW | RDW_ALLCHILDREN,
+      );
+      apis.DwmFlush();
+      apis.SetWindowPos(
+        handle,
+        null,
+        0,
+        0,
+        0,
+        0,
+        SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  });
 }
 
 module.exports = {
@@ -306,4 +336,5 @@ module.exports = {
   applyDwmCaptionStyle,
   stripSystemCaptionStyles,
   forceRepaintWindow,
+  withPreservedBounds,
 };

@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import type { ReaderSettings } from "../types";
 import { EYE_CARE_THEMES } from "../utils/themes";
 import ShortcutRecorder from "./ShortcutRecorder.vue";
 import PageKeyRecorder from "./PageKeyRecorder.vue";
+import UserManualDialog from "./UserManualDialog.vue";
+
+const manualOpen = ref(false);
 
 const props = defineProps<{
   settings: ReaderSettings;
@@ -41,6 +44,15 @@ function onProgressInput(event: Event) {
 
 <template>
   <div class="settings-content">
+    <div class="settings-toolbar">
+      <h2 class="settings-title">设置</h2>
+      <button type="button" class="manual-open-btn" @click="manualOpen = true">
+        说明书
+      </button>
+    </div>
+
+    <UserManualDialog v-if="manualOpen" @close="manualOpen = false" />
+
       <section class="section">
         <h3>阅读样式</h3>
         <div class="theme-row">
@@ -169,8 +181,8 @@ function onProgressInput(event: Event) {
           窗口置顶
         </label>
         <p class="hint">
-          阅读时鼠标移到顶部显示工具栏；右键或 Ctrl+, 打开设置。透明模式下
-          0% 可透视桌面，100% 最接近实色
+          阅读时鼠标移到顶部显示工具栏；右键或 Ctrl+, 打开设置。滚轮在阅读区翻页；
+          按住 Alt 拖动可移动窗口。透明模式下 0% 可透视桌面，100% 最接近实色
         </p>
       </section>
 

@@ -1,8 +1,10 @@
-# moyu-novel-reader
+# 摸鱼小说阅读器
 
-摸鱼小说阅读器 — 浮动窗口、置顶、快捷隐藏的 TXT 小说阅读器。
+浮动窗口、置顶、快捷隐藏的本地小说阅读器。支持透明摸鱼模式、多格式导入、章节书签与子窗口管理。
 
-**技术栈：Electron + Vue 3 + TypeScript**（无需 Visual Studio / MSVC，适合公司电脑）
+**技术栈：Electron 35 + Vue 3 + TypeScript**（纯本地，无需 Visual Studio）
+
+**当前版本：v0.3.0**
 
 ## 快速开始
 
@@ -11,40 +13,55 @@ npm install
 npm run electron:dev
 ```
 
-打包便携版 exe（免安装）：
+打包 Windows 便携版（免安装 exe）：
 
 ```bash
 npm run dist
 ```
 
-输出在 `release/` 目录，例如：
+输出：`release/摸鱼小说阅读器 0.3.0.exe`，双击即可运行。
 
-```
-release/摸鱼小说阅读器 0.1.0.exe
-```
+## 主要功能
 
-双击即可运行，无需安装。
-
-## 为什么不用 Tauri？
-
-Tauri 需要在本地编译 Rust，Windows 上依赖 Visual Studio Build Tools（`link.exe`）。
-公司电脑通常不允许安装这类大型环境。
-
-Electron 使用预编译二进制，**只需 Node.js + npm install** 即可开发和运行。
-
-## 目录结构
-
-```
-electron/           Electron 主进程（窗口、快捷键、文件、持久化）
-src/                Vue 3 前端（阅读器 UI + 分页引擎）
-scripts/            阶段 5 验证脚本 + 样例 TXT
-src-tauri/          （已弃用，保留作参考，不参与构建）
-```
+- 多格式导入：txt / md / html / rtf / fb2 / epub / docx / doc
+- 窗口随意拖拽、缩放；文字随窗口实时重排，不截断半行
+- 透明摸鱼模式：窗口与文字可半透明，透视桌面
+- 主窗口专注阅读；设置 / 书架 / 导航为独立子窗口
+- 章节自动识别、书签（Ctrl+B）、阅读进度记忆
+- 翻页可保留上一页末尾 n 行；滚轮 / 方向键 / 自定义键翻页
+- 系统托盘；全局快捷键隐藏/显示（可录制）
+- 内置说明书（设置面板 →「说明书」）
 
 ## 默认快捷键
 
 | 操作 | 按键 |
 |------|------|
-| 下一页 | 滚轮下 / → / J / 空格 |
-| 上一页 | 滚轮上 / ← / K |
-| 隐藏/显示 | `Ctrl+``（设置中可改） |
+| 下一页 | 滚轮下 / → / ↓ / 空格 / J（可改） |
+| 上一页 | 滚轮上 / ← / ↑ / K（可改） |
+| 隐藏/显示 | Ctrl+`（全局，可录制） |
+| 打开设置 | 右键阅读区 / Ctrl+, / 顶栏 ⚙ |
+| 添加书签 | Ctrl+B |
+| 拖动窗口（阅读区） | 按住 Alt + 左键拖动 |
+| 拖动窗口（顶栏） | 顶部左侧拖动手柄 |
+
+## 目录结构
+
+```
+electron/           主进程（窗口、IPC、文件读取、托盘、Windows DWM）
+src/                Vue 3 前端（阅读器、分页、设置、子窗口）
+scripts/            测试素材生成 + 阶段验证脚本
+```
+
+## 开发与测试
+
+```bash
+npm run test          # 62 项自动化测试
+npm run build         # 前端构建
+npm run dist          # 测试 + 构建 + 便携 exe
+```
+
+详细开发流程见 `开发流程.txt`。
+
+## 为什么不用 Tauri？
+
+Tauri 需在 Windows 上编译 Rust（依赖 Visual Studio Build Tools）。Electron 使用预编译二进制，只需 Node.js 即可开发打包。

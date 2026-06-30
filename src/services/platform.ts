@@ -80,6 +80,19 @@ export async function platformFocusMainWindow(): Promise<void> {
   await bridge().focusMainWindow();
 }
 
+export async function platformMoveMainWindow(
+  dx: number,
+  dy: number,
+): Promise<void> {
+  await bridge().moveMainWindow(dx, dy);
+}
+
+export async function platformSetFrameRestoreSuspended(
+  value: boolean,
+): Promise<void> {
+  await bridge().setFrameRestoreSuspended(value);
+}
+
 export async function platformOpenSettingsWindow(): Promise<void> {
   await bridge().openSettingsWindow();
 }

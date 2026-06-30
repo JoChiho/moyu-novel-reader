@@ -6,7 +6,13 @@
  * Suppression is handled via DWM + Win32 style stripping (dwmCaption.cjs).
  */
 
-const { applyDwmCaptionStyle, forceRepaintWindow } = require("./dwmCaption.cjs");
+const {
+  applyDwmCaptionStyle,
+  forceRepaintWindow,
+  withPreservedBounds,
+} = require("./dwmCaption.cjs");
+
+let frameRestoreSuspended = false;
 
 const WM_INITMENU = 0x0116;
 const WM_ACTIVATE = 0x0006;
@@ -55,11 +61,16 @@ function applyWindowsFrameStyle(win, settings = {}) {
  * @param {import("electron").BrowserWindow | null | undefined} win
  * @param {{ transparentBackground?: boolean, backgroundColor?: string }} [settings]
  */
+function setFrameRestoreSuspended(value) {
+  frameRestoreSuspended = !!value;
+}
+
 function restoreWindowsFrameOnFocus(win, settings = {}) {
-  if (!win || win.isDestroyed()) {
+  if (!win || win.isDestroyed() || frameRestoreSuspended) {
     return;
   }
 
+  const bounds = win.getBounds();
   applyWindowsTransparencyPolicy(win, settings);
 
   if (process.platform !== "win32") {
@@ -69,9 +80,20 @@ function restoreWindowsFrameOnFocus(win, settings = {}) {
   forceRepaintWindow(win);
 
   setImmediate(() => {
-    if (win.isDestroyed()) return;
+    if (win.isDestroyed() || frameRestoreSuspended) return;
     applyWindowsFrameStyle(win, settings);
     forceRepaintWindow(win);
+    if (!win.isDestroyed()) {
+      const current = win.getBounds();
+      if (current.width !== bounds.width || current.height !== bounds.height) {
+        win.setBounds({
+          x: current.x,
+          y: current.y,
+          width: bounds.width,
+          height: bounds.height,
+        });
+      }
+    }
   });
 }
 
@@ -87,8 +109,10 @@ function installWindowsTitleBarGuard(win, getSettings = () => ({})) {
   let resetting = false;
 
   const refreshFrame = () => {
-    if (win.isDestroyed()) return;
-    applyWindowsFrameStyle(win, getSettings());
+    if (win.isDestroyed() || frameRestoreSuspended) return;
+    withPreservedBounds(win, () => {
+      applyWindowsFrameStyle(win, getSettings());
+    });
   };
 
   const runGuarded = (fn) => {
@@ -206,6 +230,7 @@ module.exports = {
   preventNativeTitleBar,
   applyWindowsFrameStyle,
   restoreWindowsFrameOnFocus,
+  setFrameRestoreSuspended,
   installWindowsTitleBarGuard,
   applyWindowsTransparencyPolicy,
 };

@@ -47,7 +47,8 @@ Git tag：v0.1.0（便携版初版）→ v0.3.0（本里程碑，见第十节）
     · electron/childWindows.cjs
     · SettingsWindowApp / ShelfWindowApp / NavigatorWindowApp（hash 路由）
   - 删除 TitleBar.vue；阅读时悬停顶栏 ReaderToolbar.vue（overlay）
-  - 顶部 8px→40px 拖拽区；阅读区 -webkit-app-region: drag
+  - Grid 布局：顶栏 40px + 阅读区；顶栏左侧拖动手柄
+  - 阅读区 Alt+拖动（原生 drag region）；滚轮翻页（capture 监听）
   - IPC：open-settings/shelf/navigator-window、shelf-open-book、navigator-jump-offset
   - app-state-updated 广播，子窗口与主窗口状态同步
 
@@ -68,6 +69,7 @@ Git tag：v0.1.0（便携版初版）→ v0.3.0（本里程碑，见第十节）
 【设置与 UI】
   - 设置面板：主题预设、编码、空行合并、翻页键录制、进度滑块
   - 打开设置：顶栏 ⚙ / 右键阅读区 / Ctrl+,
+  - 内置说明书：UserManualDialog.vue（设置 →「说明书」）
   - 书架：排序、搜索、独立窗口
   - 导航：章节列表 + 书签跳转
 
@@ -77,9 +79,12 @@ Git tag：v0.1.0（便携版初版）→ v0.3.0（本里程碑，见第十节）
   - electron/dwmCaption.cjs：DwmSetWindowAttribute 压制非客户区；
     剥离 WS_CAPTION/SYSMENU；ExtendFrameIntoClientArea；聚焦强制重绘
   - 不使用 titleBarOverlay（避免失焦顶栏 + 右上角系统蓝键）
-  - focus-main-window IPC：点击正文恢复聚焦 + restoreWindowsFrameOnFocus
+  - focus-main-window IPC：恢复聚焦 + restoreWindowsFrameOnFocus
+  - Alt 拖动期间暂停边框刷新（set-frame-restore-suspended）
+  - withPreservedBounds：DWM 帧操作后锁定窗口尺寸，防止拖动后变大
   - WM_ACTIVATE 钩子：激活时刷新 DWM 顶栏残留
   - 依赖：koffi（Windows 原生 API）
+  - 已移除 src-tauri/（Tauri 迁移遗留，不参与构建）
 
 【托盘与快捷键】
   - 系统托盘 tray-icon.png；显示/隐藏/退出
@@ -115,7 +120,7 @@ Git tag：v0.1.0（便携版初版）→ v0.3.0（本里程碑，见第十节）
       ↓
   阶段 7c Windows 透明窗口 / 失焦顶栏治理           ⚠️  尽力而为（见第五节）
       ↓
-  阶段 8  打包发布                                ⬜  下一步
+  阶段 8  打包发布                                🔄  进行中
       ↓
   阶段 9  长期迭代                                ⬜
 
@@ -131,7 +136,9 @@ Git tag：v0.1.0（便携版初版）→ v0.3.0（本里程碑，见第十节）
   - 不推荐回退：灰底/mica 假透明（牺牲真摸鱼透视）
 
 【聚焦与拖拽】
-  - 点击正文 → focusMainWindow + 全阅读区可 drag
+  - 阅读区默认 no-drag，滚轮可直接翻页
+  - 按住 Alt → 阅读区变为拖动手柄；松开后恢复尺寸
+  - 顶栏左侧 window-drag-strip 也可拖窗口
   - 失焦后顶栏视觉恢复依赖 restoreWindowsFrameOnFocus（若仍异常需报 Win 版本）
 
 【macOS / Linux】
@@ -227,7 +234,9 @@ Git tag：v0.1.0（便携版初版）→ v0.3.0（本里程碑，见第十节）
   隐藏/显示     Ctrl+`（设置中可录制修改）
   打开设置      右键阅读区 / Ctrl+, ；顶栏 ⚙
   添加书签      Ctrl+B
+  拖动窗口      Alt+左键（阅读区）/ 顶栏左侧手柄
   书架/导航     顶栏「架」「导」按钮
+  说明书        设置面板 →「说明书」
   阅读工具栏    鼠标移到窗口顶部显示；失焦自动隐藏
 
 
@@ -245,7 +254,7 @@ Git tag：v0.1.0（便携版初版）→ v0.3.0（本里程碑，见第十节）
     ✅ 多格式导入、续行翻页、多窗口架构、章节书签
     ✅ Windows 透明窗口专项治理（真透明 + 无 titleBarOverlay）
     ✅ 62 项自动化测试全绿
-    □ npm run dist 便携包（阶段 8）
+    🔄 npm run dist 便携包（阶段 8，本次执行）
     □ 用户环境验收：Win 失焦顶栏是否可接受
 
   v1.0（未来）：

@@ -288,6 +288,15 @@ function hideChromeBar() {
   chromeBarOpen.value = false;
 }
 
+function onAppWheel(event: WheelEvent) {
+  if (!isReading.value || !readerRef.value) return;
+  const target = event.target;
+  if (!(target instanceof Element) || !target.closest(".reader")) return;
+  event.preventDefault();
+  if (event.deltaY > 0) readerRef.value.goNext();
+  else if (event.deltaY < 0) readerRef.value.goPrev();
+}
+
 function onWindowBlur() {
   chromeBarOpen.value = false;
   document.title = "";
@@ -301,6 +310,7 @@ onMounted(() => {
   document.title = "";
   void bootstrap();
   window.addEventListener("keydown", onKeydown);
+  window.addEventListener("wheel", onAppWheel, { passive: false, capture: true });
   window.addEventListener("blur", onWindowBlur);
   document.addEventListener("visibilitychange", onVisibilityChange);
   unsubscribeState = platformOnAppStateUpdated(() => {
@@ -314,6 +324,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener("keydown", onKeydown);
+  window.removeEventListener("wheel", onAppWheel, { capture: true });
   window.removeEventListener("blur", onWindowBlur);
   document.removeEventListener("visibilitychange", onVisibilityChange);
   unsubscribeState?.();

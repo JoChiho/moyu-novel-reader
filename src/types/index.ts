@@ -103,7 +103,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   titleBarTextOpacity: 100,
   titleBarButtonColor: "#2f2f2f",
   titleBarButtonTransparent: true,
-  titleBarButtonOpacity: 0,
+  titleBarButtonOpacity: 18,
   nextPageKey: "J",
   prevPageKey: "K",
   carryOverLinesEnabled: false,

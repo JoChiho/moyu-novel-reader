@@ -30,6 +30,7 @@ const {
   installWindowsTitleBarGuard,
   applyWindowsTransparencyPolicy,
   restoreWindowsFrameOnFocus,
+  setFrameRestoreSuspended,
 } = require("./winFrameless.cjs");
 
 const store = new Store({ name: "moyu-reader-state" });
@@ -38,6 +39,8 @@ const STORE_KEY = "appState";
 let mainWindow = null;
 let tray = null;
 let toggleShortcutElectron = "Control+`";
+/** @type {import("electron").Rectangle | null} */
+let suspendedDragBounds = null;
 
 function toggleWindowVisibility() {
   if (!mainWindow) return;
@@ -389,6 +392,44 @@ app.whenReady().then(() => {
     mainWindow.webContents.focus();
     const settings = store.get(STORE_KEY)?.settings ?? {};
     restoreWindowsFrameOnFocus(mainWindow, settings);
+  });
+
+  ipcMain.handle("move-main-window", (_e, dx, dy) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    const bounds = mainWindow.getBounds();
+    mainWindow.setBounds({
+      x: bounds.x + Math.round(Number(dx) || 0),
+      y: bounds.y + Math.round(Number(dy) || 0),
+      width: bounds.width,
+      height: bounds.height,
+    });
+  });
+
+  ipcMain.handle("set-frame-restore-suspended", (_e, value) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+
+    if (value) {
+      suspendedDragBounds = mainWindow.getBounds();
+      setFrameRestoreSuspended(true);
+      return;
+    }
+
+    setFrameRestoreSuspended(false);
+    if (suspendedDragBounds) {
+      const current = mainWindow.getBounds();
+      if (
+        current.width !== suspendedDragBounds.width ||
+        current.height !== suspendedDragBounds.height
+      ) {
+        mainWindow.setBounds({
+          x: current.x,
+          y: current.y,
+          width: suspendedDragBounds.width,
+          height: suspendedDragBounds.height,
+        });
+      }
+      suspendedDragBounds = null;
+    }
   });
 });
 

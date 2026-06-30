@@ -43,6 +43,8 @@ export interface MoyuBridge {
   bindToggleShortcut: (shortcut: string) => Promise<ShortcutBindResult>;
   setTransparent: (enabled: boolean) => Promise<void>;
   focusMainWindow: () => Promise<void>;
+  moveMainWindow: (dx: number, dy: number) => Promise<void>;
+  setFrameRestoreSuspended: (value: boolean) => Promise<void>;
   openSettingsWindow: () => Promise<{ ok: boolean }>;
   openShelfWindow: () => Promise<{ ok: boolean }>;
   openNavigatorWindow: () => Promise<{ ok: boolean }>;

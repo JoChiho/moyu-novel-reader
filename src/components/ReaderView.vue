@@ -13,7 +13,7 @@ import {
   setCachedPage,
   settingsLayoutHash,
 } from "../services/pageCache";
-import { platformFocusMainWindow } from "../services/platform";
+import { platformSetFrameRestoreSuspended } from "../services/platform";
 import { readerBackground, readerTextColor } from "../utils/color";
 import type { PageSlice, ReaderSettings } from "../types";
 
@@ -52,12 +52,22 @@ const readerStyle = computed(() => ({
   padding: `${props.settings.padding}px`,
 }));
 
+const probeStyle = computed(() => ({
+  lineHeight: String(props.settings.lineHeight),
+}));
+
 const lineStyle = computed(() => ({
   lineHeight: String(props.settings.lineHeight),
   height: `${lineHeightPx.value}px`,
 }));
 
 const lineHeightPx = ref(24);
+let lastTypographyKey = "";
+
+function typographyKey() {
+  const { fontSize, lineHeight, fontFamily } = props.settings;
+  return `${fontSize}:${lineHeight}:${fontFamily}`;
+}
 
 function buildMeasure(): TextMeasure | null {
   const el = measureRef.value;
@@ -70,20 +80,28 @@ function buildMeasure(): TextMeasure | null {
   };
 }
 
-function updateLineHeight() {
+function syncLineHeight() {
   const probe = lineProbeRef.value;
   if (!probe) {
-    lineHeightPx.value = props.settings.fontSize * props.settings.lineHeight;
+    lineHeightPx.value = Math.round(
+      props.settings.fontSize * props.settings.lineHeight,
+    );
     return;
   }
-  lineHeightPx.value = probe.getBoundingClientRect().height;
+  // Measure once per typography change; probe has no explicit height to avoid feedback drift.
+  lineHeightPx.value = Math.max(1, Math.round(probe.getBoundingClientRect().height));
 }
 
 function relayout() {
   const el = containerRef.value;
   if (!el) return;
 
-  updateLineHeight();
+  const typoKey = typographyKey();
+  if (typoKey !== lastTypographyKey) {
+    syncLineHeight();
+    lastTypographyKey = typoKey;
+  }
+
   const measure = buildMeasure();
   if (!measure) return;
 
@@ -119,7 +137,6 @@ function getMetrics() {
   const el = containerRef.value;
   const measure = buildMeasure();
   if (!el || !measure) return null;
-  updateLineHeight();
   const pad = props.settings.padding;
   return {
     metrics: computeLayoutMetrics(
@@ -154,6 +171,19 @@ function goPrev() {
 }
 
 let observer: ResizeObserver | null = null;
+const altHeld = ref(false);
+
+function onAltKeyDown(event: KeyboardEvent) {
+  if (event.key !== "Alt") return;
+  altHeld.value = true;
+  void platformSetFrameRestoreSuspended(true);
+}
+
+function onAltKeyUp(event: KeyboardEvent) {
+  if (event.key !== "Alt") return;
+  altHeld.value = false;
+  void platformSetFrameRestoreSuspended(false);
+}
 
 onMounted(async () => {
   await nextTick();
@@ -162,10 +192,17 @@ onMounted(async () => {
     observer = new ResizeObserver(() => relayout());
     observer.observe(containerRef.value);
   }
+  window.addEventListener("keydown", onAltKeyDown);
+  window.addEventListener("keyup", onAltKeyUp);
 });
 
 onUnmounted(() => {
   observer?.disconnect();
+  window.removeEventListener("keydown", onAltKeyDown);
+  window.removeEventListener("keyup", onAltKeyUp);
+  if (altHeld.value) {
+    void platformSetFrameRestoreSuspended(false);
+  }
 });
 
 watch(
@@ -183,19 +220,9 @@ watch(
   { deep: true },
 );
 
-function onWheel(event: WheelEvent) {
-  event.preventDefault();
-  if (event.deltaY > 0) goNext();
-  else if (event.deltaY < 0) goPrev();
-}
-
 function onContextMenu(event: MouseEvent) {
   event.preventDefault();
   emit("open-settings");
-}
-
-function onReaderPointerDown() {
-  void platformFocusMainWindow();
 }
 
 defineExpose({ goNext, goPrev, relayout });
@@ -205,13 +232,12 @@ defineExpose({ goNext, goPrev, relayout });
   <section
     ref="containerRef"
     class="reader"
+    :class="{ 'reader-alt-drag': altHeld }"
     :style="readerStyle"
-    @wheel="onWheel"
     @contextmenu="onContextMenu"
-    @pointerdown="onReaderPointerDown"
   >
     <span ref="measureRef" class="measure-span" aria-hidden="true"> </span>
-    <p ref="lineProbeRef" class="line line-probe" :style="lineStyle">测</p>
+    <p ref="lineProbeRef" class="line line-probe" :style="probeStyle">测</p>
     <p
       v-for="(line, idx) in page.lines"
       :key="idx"
