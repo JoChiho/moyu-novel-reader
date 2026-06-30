@@ -77,6 +77,31 @@ function restoreWindowBounds(win) {
   }
 }
 
+/** Height of the top chrome row (must match CSS .reader-chrome). */
+const READER_CHROME_HEIGHT_PX = 40;
+
+/**
+ * Frameless windows with -webkit-app-region: drag swallow wheel in the renderer.
+ * Forward wheel from the OS input path instead.
+ * @param {import("electron").BrowserWindow} win
+ */
+function installMainWindowWheelForward(win) {
+  if (!win || win.isDestroyed()) return;
+
+  win.webContents.on("before-input-event", (_event, input) => {
+    if (win.isDestroyed() || !win.isFocused()) return;
+    if (input.type !== "mouseWheel") return;
+
+    const y = Number(input.y ?? 0);
+    if (y < READER_CHROME_HEIGHT_PX) return;
+
+    const deltaY = Number(input.deltaY ?? input.wheelDeltaY ?? 0);
+    if (!deltaY) return;
+
+    win.webContents.send("main-window-wheel", { deltaY });
+  });
+}
+
 function createTray() {
   const iconPath = path.join(__dirname, "tray-icon.png");
   const icon = nativeImage.createFromPath(iconPath);
@@ -135,6 +160,7 @@ function createWindow() {
 
   mainWindow = new BrowserWindow(windowOptions);
 
+  installMainWindowWheelForward(mainWindow);
   preventNativeTitleBar(mainWindow);
   installWindowsTitleBarGuard(
     mainWindow,

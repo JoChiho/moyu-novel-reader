@@ -20,6 +20,7 @@ import {
   platformOnAppStateUpdated,
   platformOnDisplayMetricsChanged,
   platformOnMainWindowBlur,
+  platformOnMainWindowWheel,
   platformOpenNavigatorWindow,
   platformOpenSettingsWindow,
   platformOpenShelfWindow,
@@ -38,6 +39,7 @@ const chromeBarOpen = ref(false);
 let unsubscribeState: (() => void) | null = null;
 let unsubscribeDpi: (() => void) | null = null;
 let unsubscribeBlur: (() => void) | null = null;
+let unsubscribeWheel: (() => void) | null = null;
 
 const isReading = computed(
   () => !!(activeBook.value && bookContent.value.length),
@@ -288,13 +290,10 @@ function hideChromeBar() {
   chromeBarOpen.value = false;
 }
 
-function onAppWheel(event: WheelEvent) {
-  if (!isReading.value || !readerRef.value) return;
-  const target = event.target;
-  if (!(target instanceof Element) || !target.closest(".reader")) return;
-  event.preventDefault();
-  if (event.deltaY > 0) readerRef.value.goNext();
-  else if (event.deltaY < 0) readerRef.value.goPrev();
+function handleWheelDelta(deltaY: number) {
+  if (!isReading.value || !readerRef.value || !deltaY) return;
+  if (deltaY > 0) readerRef.value.goNext();
+  else readerRef.value.goPrev();
 }
 
 function onWindowBlur() {
@@ -310,8 +309,10 @@ onMounted(() => {
   document.title = "";
   void bootstrap();
   window.addEventListener("keydown", onKeydown);
-  window.addEventListener("wheel", onAppWheel, { passive: false, capture: true });
   window.addEventListener("blur", onWindowBlur);
+  unsubscribeWheel = platformOnMainWindowWheel(({ deltaY }) => {
+    handleWheelDelta(deltaY);
+  });
   document.addEventListener("visibilitychange", onVisibilityChange);
   unsubscribeState = platformOnAppStateUpdated(() => {
     void loadAppState().then((state) => syncFromState(state));
@@ -324,8 +325,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener("keydown", onKeydown);
-  window.removeEventListener("wheel", onAppWheel, { capture: true });
   window.removeEventListener("blur", onWindowBlur);
+  unsubscribeWheel?.();
   document.removeEventListener("visibilitychange", onVisibilityChange);
   unsubscribeState?.();
   unsubscribeDpi?.();

@@ -135,3 +135,9 @@ export function platformOnDisplayMetricsChanged(
 export function platformOnMainWindowBlur(callback: () => void): () => void {
   return bridge().onMainWindowBlur(callback);
 }
+
+export function platformOnMainWindowWheel(
+  callback: (payload: { deltaY: number }) => void,
+): () => void {
+  return bridge().onMainWindowWheel(callback);
+}

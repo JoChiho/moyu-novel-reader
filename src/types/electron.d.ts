@@ -54,6 +54,7 @@ export interface MoyuBridge {
   onAppStateUpdated: (callback: () => void) => () => void;
   onDisplayMetricsChanged: (callback: () => void) => () => void;
   onMainWindowBlur: (callback: () => void) => () => void;
+  onMainWindowWheel: (callback: (payload: { deltaY: number }) => void) => () => void;
 }
 
 declare global {

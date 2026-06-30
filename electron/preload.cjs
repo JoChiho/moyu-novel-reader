@@ -38,4 +38,9 @@ contextBridge.exposeInMainWorld("moyu", {
     ipcRenderer.on("main-window-blur", handler);
     return () => ipcRenderer.removeListener("main-window-blur", handler);
   },
+  onMainWindowWheel: (callback) => {
+    const handler = (_event, payload) => callback(payload);
+    ipcRenderer.on("main-window-wheel", handler);
+    return () => ipcRenderer.removeListener("main-window-wheel", handler);
+  },
 });
