@@ -1,206 +1,199 @@
 摸鱼小说阅读器 — 开发流程与后续步骤
 =====================================
-基于需求：Tauri v2 + Vue 3 + TypeScript 浮动 TXT 阅读器
-文档版本：MVP v0.1  |  更新：2026-06-29
+技术栈：Electron + Vue 3 + TypeScript（纯本地，无后端，免 Visual Studio）
+文档版本：v0.1.0  |  更新：2026-06-30
 
 
 一、项目目标（核心需求摘要）
 --------------------------
 
-1. 窗口可随意拖拽、调整大小；文字显示数量随窗口实时变化（动态分页）
-2. 窗口永远置顶；支持点击特定区域或全局快捷键（可配置，如 Ctrl+` / F12）快速隐藏/显示
-3. 支持导入 .txt 文件，多本书籍管理
-4. 可实时调整字体大小、背景颜色（护眼模式）、文字颜色
-5. 支持鼠标滚轮 + 键盘（方向键、J/K、空格等）翻页，快捷键可自定义
-6. 绝对不能出现半截字/半行被切断，必须完整显示文字内容
-7. 强记忆能力：关闭后恢复阅读位置（按书籍 char offset）、窗口位置大小、字体/颜色设置
+1. 窗口可随意拖拽、调整大小（无最小尺寸限制）；文字随窗口实时重排
+2. 窗口永远置顶；全局快捷键（可录制，如 Ctrl+Z）快速隐藏/显示
+3. 支持导入 .txt，多本书籍管理（UTF-8 / GBK 自动识别）
+4. 字号、文字色、背景色可自由调节；支持透明窗口摸鱼模式
+5. 滚轮 + 方向键 + J/K + 空格翻页
+6. 禁止半行/半字截断
+7. 强记忆：阅读进度、窗口位置大小、样式设置
 
 技术要求：
-- Tauri v2 + Vue 3 + TypeScript
-- 分页：ResizeObserver + canvas measureText / line-height 精确计算
-- 进度持久化：Tauri Store / JSON（per book）
-- 窗口状态：tauri-plugin-window-state
-- 全局快捷键：@tauri-apps/plugin-global-shortcut
-- 文件导入：tauri-plugin-dialog + fs
+- Electron + Vue 3 + TypeScript
+- 分页：ResizeObserver + DOM 实测折行（与屏幕渲染一致）
+- 持久化：electron-store（书架 + 设置 + 窗口 bounds）
+- 全局快捷键：Electron globalShortcut + ShortcutRecorder 按键录制
+- 文件：dialog.showOpenDialog + fs（iconv-lite GBK 回退）
 
 
-二、总体开发阶段（全流程顺序）
-------------------------------
-
-以下顺序为项目从启动到发布的完整路径，后续所有工作按此顺序推进，不跳步。
-
-  阶段 0  环境准备与仓库初始化
-      ↓
-  阶段 1  项目脚手架 + 目录结构 + 数据模型设计
-      ↓
-  阶段 2  基础窗口能力（拖拽 / 置顶 / 隐藏显示 / 窗口状态记忆）
-      ↓
-  阶段 3  阅读视图 + 动态分页核心（不截断文字）
-      ↓
-  阶段 4  TXT 导入 + 翻页交互 + 设置面板（MVP 功能闭环）
-      ↓
-  阶段 5  本地验证与 MVP 体验打磨
-      ↓
-  阶段 6  功能增强（v0.2）
-      ↓
-  阶段 7  稳定性 / 兼容性 / 性能优化
-      ↓
-  阶段 8  打包发布与版本管理
-      ↓
-  阶段 9  后续迭代（按需）
-
-
-三、各阶段详细流程
-------------------
-
-【阶段 0】环境准备与仓库初始化  ✅ 已完成
-  0.1 克隆/初始化 Git 仓库
-  0.2 整理工作区目录（避免嵌套 worktree 同名冲突）
-  0.3 安装 Node.js 18+、Rust 1.77+
-  0.4 安装 Windows 构建依赖：Visual Studio Build Tools（含 C++ 桌面开发，提供 link.exe）
-  0.5 验证：npm install、npm run build（前端）、npm run tauri dev（完整应用）
-
-【阶段 1】项目脚手架 + 目录结构 + 数据模型  ✅ 已完成
-  1.1 初始化 Tauri v2 + Vue 3 + TypeScript 项目
-  1.2 配置插件：window-state、global-shortcut、dialog、fs、store
-  1.3 定义目录结构：
-        src/types/          类型定义
-        src/services/       业务服务（storage / pagination / bookImport）
-        src/composables/    可复用逻辑（窗口 / 快捷键）
-        src/components/     UI 组件
-        src-tauri/          Rust 后端与 capabilities
-  1.4 定义数据模型：
-        Book           书籍元数据 + charOffset 阅读进度
-        ReaderSettings 字体 / 颜色 / 置顶 / 隐藏快捷键
-        AppState       书架列表 + 设置 + lastBookId
-
-【阶段 2】基础窗口能力  ✅ 已完成
-  2.1 tauri.conf.json：无边框、可缩放、初始隐藏、alwaysOnTop
-  2.2 TitleBar：data-tauri-drag-region 拖拽区域
-  2.3 置顶：setAlwaysOnTop，设置面板可切换
-  2.4 隐藏/显示：标题栏按钮 + 全局快捷键 toggleVisibility
-  2.5 窗口状态记忆：tauri-plugin-window-state 自动保存/恢复位置与大小
-
-【阶段 3】阅读视图 + 动态分页核心  ✅ 已完成
-  3.1 ReaderView 阅读容器 + ResizeObserver 监听尺寸变化
-  3.2 pagination.ts：canvas.measureText 逐字/逐词折行
-  3.3 按完整行数计算每页（maxLines = floor(高度 / lineHeight)）
-  3.4 以 charOffset 记录页首位置，翻页更新 offset，禁止半行截断
-  3.5 窗口 resize 时从当前 offset 重新分页渲染
-
-【阶段 4】TXT 导入 + 翻页 + 设置面板（MVP 闭环）  ✅ 已完成
-  4.1 dialog 选择 .txt → fs readTextFile 读取内容
-  4.2 书架：多书管理、切换、删除
-  4.3 翻页：滚轮、方向键、J/K、空格
-  4.4 设置面板：字号、文字色、背景色、置顶、隐藏快捷键
-  4.5 Store 持久化：阅读进度、样式、lastBookId；关闭重开自动恢复
-
-【阶段 5】本地验证与 MVP 体验打磨  ⬅ 当前阶段（进行中）
-  5.1 安装 MSVC Build Tools，确保 npm run tauri dev 可启动
-  5.2 导入真实 TXT 小说，验证中文/英文混排分页是否正确
-  5.3 验证：拖拽、缩放、翻页、隐藏/显示、重启后状态恢复
-  5.4 验证：极小窗口 / 极大窗口 / 快速连续 resize 不闪屏、不截断
-  5.5 修复 MVP 阶段发现的 bug，提交 v0.1.0 标签
-
-【阶段 6】功能增强（v0.2）  ⬜ 待开始
-  6.1 翻页快捷键完全可自定义（设置面板配置并持久化）
-  6.2 编码支持：UTF-8 / GBK 自动检测或手动选择
-  6.3 系统托盘：隐藏后从托盘恢复，右键菜单（显示/退出）
-  6.4 阅读进度条 / 百分比跳转 / 章节识别（可选）
-  6.5 预设护眼主题（米黄、豆沙绿、夜间模式等一键切换）
-  6.6 书籍排序、搜索、最近阅读列表
-
-【阶段 7】稳定性 / 兼容性 / 性能优化  ⬜ 待开始
-  7.1 大文件优化：超大 TXT 分段加载或虚拟滚动式分页缓存
-  7.2 分页结果缓存（同尺寸同设置不重复计算）
-  7.3 快捷键冲突检测与注册失败提示
-  7.4 Windows 多显示器 / DPI 缩放适配
-  7.5 异常处理：文件被删、路径失效、读取失败的用户提示
-
-【阶段 8】打包发布与版本管理  ⬜ 待开始
-  8.1 npm run tauri build 生成 Windows 安装包（.msi / .exe）
-  8.2 配置应用图标、版本号、identifier
-  8.3 编写用户说明（快捷键一览、导入方式）
-  8.4 Git 发版：tag v0.x.x + GitHub Release 附件
-  8.5 （可选）配置自动构建 CI（GitHub Actions）
-
-【阶段 9】后续迭代（按需）  ⬜ 待规划
-  9.1 跨平台：macOS / Linux 适配与测试
-  9.2 云同步阅读进度（可选，非 MVP）
-  9.3 划词复制、书签、笔记
-  9.4 自动更新（tauri-plugin-updater）
-  9.5 插件化书源（非 TXT 格式扩展）
-
-
-四、日常开发工作流（每次改动的标准顺序）
+二、目前已完成变动总结（v0.0 → v0.1.1）
 ----------------------------------------
 
-  1. 从 main 拉取最新代码（或确认在正确 worktree 分支上）
-  2. 明确本次属于哪个阶段 / 哪个子任务（对照上文编号）
-  3. 改代码 → 本地 npm run tauri dev 热重载验证
-  4. 自测清单：
-       - 分页是否截断？
-       - 重启后进度/窗口/样式是否恢复？
-       - 隐藏快捷键是否仍可用？
-  5. npm run build 确认前端 TypeScript 无报错
-  6. git add → commit（附清晰说明）→ push
-  7. 若完成一个阶段节点，更新本文件中的阶段状态（✅ / ⬅ / ⬜）
+【架构】
+  - 由 Tauri 迁移至 Electron（公司电脑无法装 MSVC / Visual Studio）
+  - 弃用 src-tauri/，主进程在 electron/main.cjs
+  - 全部数据本地存储，不连接任何后端
+
+【窗口与摸鱼体验】
+  - 无边框、透明窗口、可置顶
+  - 阅读时自动隐藏标题栏，仅保留文字与背景
+  - 鼠标移至顶部 / 右键 / Ctrl+S 唤出设置
+  - 透明窗口模式 + 背景不透明度滑块
+  - 窗口最小尺寸限制已移除（可缩到任意大小）
+
+【导入与持久化】
+  - 修复 IPC「无法被克隆」：Vue 响应式对象转 plain JSON 再传输
+  - 修复文件对话框被置顶窗口遮挡
+  - GBK / UTF-8 智能读取
+  - 书架、阅读进度、窗口位置自动保存
+
+【快捷键】
+  - ShortcutRecorder：点击录制，Ctrl+Z 等自动识别并注册
+  - 注册失败时设置面板显示错误提示
+
+【排版】
+  - Canvas 测量改为 DOM 实测，消除下半屏空白
+  - 去掉末尾空行填充；行高 DOM 探测
+  - 字号改为数字输入，最小 1px，无 12px 下限
+
+【质量保障】
+  - Vitest 单元测试（shortcut / pagination / color / serialize 等）
+  - electron 主进程 node:test（shortcut / fileReader）
+  - 每次改动流程：npm run test → electron:dev 手测 → npm run build
 
 
-五、推荐 Git 分支策略
+三、总体开发阶段（全流程顺序）
+------------------------------
+
+  阶段 0  环境准备与仓库初始化                    ✅
+      ↓
+  阶段 1  脚手架 + 目录 + 数据模型                ✅
+      ↓
+  阶段 2  窗口能力（拖拽/置顶/隐藏/记忆）          ✅
+      ↓
+  阶段 3  阅读视图 + 动态分页（不截断）            ✅
+      ↓
+  阶段 4  导入 + 翻页 + 设置面板                  ✅
+      ↓
+  阶段 5  本地验证与体验打磨                      ✅
+      ↓
+  阶段 6  功能增强（v0.2）                        ⬅ 下一步
+      ↓
+  阶段 7  稳定性 / 性能优化
+      ↓
+  阶段 8  打包发布
+      ↓
+  阶段 9  长期迭代
+
+
+四、各阶段详细状态
+------------------
+
+【阶段 0】✅ 环境准备
+  Node.js 18+、npm install、无需 Rust/VS
+
+【阶段 1】✅ 项目结构
+  electron/          主进程（窗口、快捷键、文件、存储）
+  src/types/         Book / ReaderSettings / AppState
+  src/services/      storage / pagination / bookImport / platform
+  src/components/    ReaderView / TitleBar / SettingsPanel / ShortcutRecorder
+  src/utils/         shortcut / serialize / color / bookPath
+  src/composables/   useWindowVisibility / useGlobalShortcut
+  scripts/           phase5_validate.py、sample-novel.txt
+
+【阶段 2】✅ 窗口能力
+  无边框、透明、置顶、隐藏/显示、bounds 记忆、顶部拖拽条
+
+【阶段 3】✅ 动态分页
+  DOM measureText、charOffset 翻页、ResizeObserver 实时重排
+
+【阶段 4】✅ 功能闭环
+  TXT 导入、书架、设置面板、快捷键录制、toast 提示
+
+【阶段 5】✅ 体验打磨（本轮已完成项）
+  5.1 electron:dev 可启动（免 MSVC）                    ✅
+  5.2 修复导入失败、快捷键无法保存                       ✅
+  5.3 透明窗口 + 阅读时隐藏标题栏                        ✅
+  5.4 排版填满窗口（DOM 分页）                           ✅
+  5.5 移除窗口最小尺寸限制、字号自由设置                  ✅
+  5.6 单元测试 18 项                                    ✅
+  5.7 打 tag v0.1.0 / 便携版 exe                        ✅
+       产物：release/摸鱼小说阅读器 0.1.0.exe（约 74 MB，免安装便携版）
+
+【阶段 5】✅ 已完成（2026-06-30）
+
+【阶段 6】⬜ 功能增强 v0.2（下一步）
+  6.1 翻页快捷键可自定义（J/K/空格等）
+  6.2 编码手动选择（UTF-8 / GBK）
+  6.3 系统托盘（隐藏后托盘恢复）
+  6.4 进度条 / 跳转 / 章节识别
+  6.5 预设护眼主题一键切换
+  6.6 书架排序、搜索
+
+【阶段 7】⬜ 稳定性 / 性能
+  7.1 超大 TXT 分段加载 / 分页缓存
+  7.2 快捷键冲突检测增强
+  7.3 多显示器 / DPI 适配
+  7.4 文件被删/路径失效提示优化
+
+【阶段 8】⬜ 打包发布
+  8.1 npm run dist → release/ 便携 exe
+  8.2 用户快捷键说明
+  8.3 GitHub Release + tag
+
+【阶段 9】⬜ 长期迭代
+  跨平台、书签笔记、自动更新、更多书源格式
+
+
+五、日常开发工作流（强制顺序）
+------------------------------
+
+  1. 确认阶段编号（对照第四节）
+  2. 改代码
+  3. npm run test          ← 单元测试必须通过
+  4. npm run electron:dev  ← 手动验证
+  5. 自测清单：
+       - 导入 TXT 正常？
+       - 极小/极大窗口排版正常、无半行截断？
+       - 透明模式、标题栏隐藏、快捷键录制？
+       - 重启后进度/窗口/样式恢复？
+  6. npm run build
+  7. git commit → push
+  8. 更新本文件阶段状态
+
+
+六、关键命令
+------------
+
+  npm install
+  npm run test                 全部单元测试（必跑）
+  npm run electron:dev         开发运行
+  npm run build                前端构建
+  npm run dist                 测试 + 构建 + 便携版 exe
+  npm run phase5               测试 + 构建 + 阶段脚本验证
+
+
+七、默认快捷键（当前）
 --------------------
 
-  main           稳定可运行版本
-  feat/xxx       新功能（对应阶段 6+ 子任务）
-  fix/xxx        Bug 修复
-  chore/xxx      构建、配置、文档
-
-  命名示例：
-    feat/custom-shortcuts      自定义翻页快捷键
-    feat/gbk-encoding          GBK 编码支持
-    feat/system-tray           系统托盘
-    fix/pagination-resize      缩放时分页异常修复
+  下一页       滚轮下 / → / ↓ / J / 空格
+  上一页       滚轮上 / ← / ↑ / K
+  隐藏/显示     Ctrl+`（设置中可录制修改）
+  打开设置      右键阅读区 / Ctrl+S / ,
+  阅读时标题栏   自动隐藏；鼠标移到窗口顶部临时显示
 
 
-六、关键命令速查
-----------------
+八、阶段完成判定（DoD）
+----------------------
 
-  npm install                  安装依赖
-  npm run dev                  仅前端 Vite 开发服务器
-  npm run tauri dev            完整 Tauri 开发模式（推荐）
-  npm run build                前端生产构建
-  npm run tauri build          打包桌面安装程序
+  v0.1.0（当前，tag 已打）：
+    ✅ electron:dev 稳定启动
+    ✅ 导入 TXT、快捷键录制、透明摸鱼模式
+    ✅ 排版填满窗口、无半行截断
+    ✅ 单元测试全绿
+    ✅ npm run dist 便携版已生成
 
-  环境变量（Grok CLI 等场景）：
-    set GROK_HOME=C:\Users\xuzhifu\.grok
-    set HOME=C:\Users\xuzhifu
+  v0.2：
+    □ 阶段 6 核心项交付
+    □ 大文件（>5MB）无明显卡顿
 
-
-七、当前进度快照
-----------------
-
-  已完成：阶段 0 ~ 阶段 4（MVP 代码已落地）
-  进行中：阶段 5（需先解决 link.exe / MSVC 构建环境）
-  下一步：跑通 tauri dev → 实测小说 → 修 bug → 打 v0.1.0
-  再之后：按阶段 6 → 7 → 8 顺序推进，不跳过验证环节
-
-
-八、阶段完成判定标准（DoD）
----------------------------
-
-  MVP v0.1 完成条件：
-    □ tauri dev 在本机可稳定启动
-    □ 导入 TXT 后可阅读，翻页流畅
-    □ 任意窗口大小下无半行截断
-    □ 隐藏/显示快捷键与按钮均可用
-    □ 关闭重开：进度、窗口、样式全部恢复
-
-  v0.2 完成条件：
-    □ 阶段 6 全部子项或明确裁剪项已交付
-    □ 大文件（>5MB TXT）阅读无明显卡顿
-    □ 无 P0/P1 已知 bug
-
-  正式发布 v1.0 完成条件：
+  v1.0：
     □ 阶段 7、8 完成
-    □ Windows 安装包可安装、可卸载、可升级
-    □ README 与用户文档齐全
+    □ 文档齐全、可分发

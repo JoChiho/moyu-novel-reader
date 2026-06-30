@@ -16,6 +16,8 @@ export interface ReaderSettings {
   padding: number;
   alwaysOnTop: boolean;
   toggleVisibilityShortcut: string;
+  transparentBackground: boolean;
+  backgroundOpacity: number;
 }
 
 export interface AppState {
@@ -44,10 +46,12 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif',
   textColor: "#3d3d3d",
   backgroundColor: "#c7edcc",
-  lineHeight: 1.75,
-  padding: 16,
+  lineHeight: 1.55,
+  padding: 10,
   alwaysOnTop: true,
   toggleVisibilityShortcut: "Ctrl+`",
+  transparentBackground: false,
+  backgroundOpacity: 88,
 };
 
 export const APP_STATE_VERSION = 1;

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { Book, ReaderSettings } from "../types";
+import ShortcutRecorder from "./ShortcutRecorder.vue";
 
 defineProps<{
   open: boolean;
   settings: ReaderSettings;
   books: Book[];
   activeBookId: string | null;
+  shortcutError?: string;
 }>();
 
 const emit = defineEmits<{
@@ -27,19 +29,21 @@ const emit = defineEmits<{
       <section class="section">
         <h3>阅读样式</h3>
         <label>
-          字号
+          字号 (px)
           <input
-            type="range"
-            min="12"
-            max="32"
+            type="number"
+            min="1"
+            step="1"
             :value="settings.fontSize"
-            @input="
+            @change="
               emit('update:settings', {
-                fontSize: Number(($event.target as HTMLInputElement).value),
+                fontSize: Math.max(
+                  1,
+                  Number(($event.target as HTMLInputElement).value) || 1,
+                ),
               })
             "
           />
-          <span>{{ settings.fontSize }}px</span>
         </label>
         <label>
           文字颜色
@@ -68,6 +72,36 @@ const emit = defineEmits<{
         <label class="checkbox">
           <input
             type="checkbox"
+            :checked="settings.transparentBackground"
+            @change="
+              emit('update:settings', {
+                transparentBackground: ($event.target as HTMLInputElement)
+                  .checked,
+              })
+            "
+          />
+          透明窗口（摸鱼模式）
+        </label>
+        <label v-if="settings.transparentBackground">
+          背景不透明度
+          <input
+            type="range"
+            min="20"
+            max="100"
+            :value="settings.backgroundOpacity"
+            @input="
+              emit('update:settings', {
+                backgroundOpacity: Number(
+                  ($event.target as HTMLInputElement).value,
+                ),
+              })
+            "
+          />
+          <span>{{ settings.backgroundOpacity }}%</span>
+        </label>
+        <label class="checkbox">
+          <input
+            type="checkbox"
             :checked="settings.alwaysOnTop"
             @change="
               emit('update:settings', {
@@ -77,25 +111,19 @@ const emit = defineEmits<{
           />
           窗口置顶
         </label>
+        <p class="hint">阅读时标题栏自动隐藏；鼠标移到顶部或右键可唤出设置</p>
       </section>
 
       <section class="section">
         <h3>快捷键</h3>
-        <label>
-          隐藏/显示
-          <input
-            type="text"
-            :value="settings.toggleVisibilityShortcut"
-            placeholder="Ctrl+`"
-            @change="
-              emit('update:settings', {
-                toggleVisibilityShortcut: (
-                  $event.target as HTMLInputElement
-                ).value.trim(),
-              })
-            "
-          />
-        </label>
+        <ShortcutRecorder
+          :model-value="settings.toggleVisibilityShortcut"
+          label="隐藏/显示"
+          @update:model-value="
+            emit('update:settings', { toggleVisibilityShortcut: $event })
+          "
+        />
+        <p v-if="shortcutError" class="error">{{ shortcutError }}</p>
         <p class="hint">翻页：滚轮、方向键、J/K、空格</p>
       </section>
 

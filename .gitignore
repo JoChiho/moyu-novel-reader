@@ -4,10 +4,12 @@ terminals/
 
 # Dependencies
 node_modules/
+venv/
 
 # Build
 dist/
 src-tauri/target/
+release/
 
 # OS
 Thumbs.db

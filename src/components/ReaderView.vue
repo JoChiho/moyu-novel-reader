@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import {
   computeLayoutMetrics,
   paginateFromOffset,
+  type TextMeasure,
 } from "../services/pagination";
+import { readerBackground } from "../utils/color";
 import type { PageSlice, ReaderSettings } from "../types";
 
 const props = defineProps<{
@@ -16,35 +18,89 @@ const emit = defineEmits<{
   "update:charOffset": [value: number];
   nextPage: [];
   prevPage: [];
+  "open-settings": [];
 }>();
 
 const containerRef = ref<HTMLElement | null>(null);
+const measureRef = ref<HTMLElement | null>(null);
+const lineProbeRef = ref<HTMLElement | null>(null);
 const page = ref<PageSlice>({ start: 0, end: 0, lines: [] });
 
 const readerStyle = computed(() => ({
   color: props.settings.textColor,
-  backgroundColor: props.settings.backgroundColor,
+  backgroundColor: readerBackground(
+    props.settings.backgroundColor,
+    props.settings.transparentBackground,
+    props.settings.backgroundOpacity,
+  ),
   fontSize: `${props.settings.fontSize}px`,
   fontFamily: props.settings.fontFamily,
   lineHeight: String(props.settings.lineHeight),
   padding: `${props.settings.padding}px`,
 }));
 
+const lineStyle = computed(() => ({
+  lineHeight: String(props.settings.lineHeight),
+  height: `${lineHeightPx.value}px`,
+}));
+
+const lineHeightPx = ref(24);
+
+function buildMeasure(): TextMeasure | null {
+  const el = measureRef.value;
+  if (!el) return null;
+  return {
+    measureWidth: (text: string) => {
+      el.textContent = text || " ";
+      return el.getBoundingClientRect().width;
+    },
+  };
+}
+
+function updateLineHeight() {
+  const probe = lineProbeRef.value;
+  if (!probe) {
+    lineHeightPx.value = props.settings.fontSize * props.settings.lineHeight;
+    return;
+  }
+  lineHeightPx.value = probe.getBoundingClientRect().height;
+}
+
 function relayout() {
   const el = containerRef.value;
   if (!el) return;
 
-  const rect = el.getBoundingClientRect();
+  updateLineHeight();
+  const measure = buildMeasure();
+  if (!measure) return;
+
   const pad = props.settings.padding;
-  const width = Math.max(40, rect.width - pad * 2);
-  const height = Math.max(40, rect.height - pad * 2);
-  const metrics = computeLayoutMetrics(width, height, props.settings);
+  const width = Math.max(40, el.clientWidth - pad * 2);
+  const height = Math.max(40, el.clientHeight - pad * 2);
+  const metrics = computeLayoutMetrics(width, height, lineHeightPx.value);
+
   page.value = paginateFromOffset(
     props.content,
     props.charOffset,
     metrics,
-    props.settings,
+    measure,
   );
+}
+
+function getMetrics() {
+  const el = containerRef.value;
+  const measure = buildMeasure();
+  if (!el || !measure) return null;
+  updateLineHeight();
+  const pad = props.settings.padding;
+  return {
+    metrics: computeLayoutMetrics(
+      Math.max(40, el.clientWidth - pad * 2),
+      Math.max(40, el.clientHeight - pad * 2),
+      lineHeightPx.value,
+    ),
+    measure,
+  };
 }
 
 function goNext() {
@@ -53,22 +109,10 @@ function goNext() {
   emit("nextPage");
 }
 
-function getMetrics() {
-  const el = containerRef.value;
-  if (!el) return null;
-  const rect = el.getBoundingClientRect();
-  const pad = props.settings.padding;
-  return computeLayoutMetrics(
-    Math.max(40, rect.width - pad * 2),
-    Math.max(40, rect.height - pad * 2),
-    props.settings,
-  );
-}
-
 function goPrev() {
   if (props.charOffset <= 0) return;
-  const metrics = getMetrics();
-  if (!metrics) return;
+  const ctx = getMetrics();
+  if (!ctx) return;
 
   let offset = 0;
   let prevStart = 0;
@@ -76,8 +120,8 @@ function goPrev() {
     const slice = paginateFromOffset(
       props.content,
       offset,
-      metrics,
-      props.settings,
+      ctx.metrics,
+      ctx.measure,
     );
     if (slice.end <= offset) break;
     if (slice.end >= props.charOffset) break;
@@ -90,7 +134,8 @@ function goPrev() {
 
 let observer: ResizeObserver | null = null;
 
-onMounted(() => {
+onMounted(async () => {
+  await nextTick();
   relayout();
   if (containerRef.value) {
     observer = new ResizeObserver(() => relayout());
@@ -104,7 +149,10 @@ onUnmounted(() => {
 
 watch(
   () => [props.content, props.charOffset, props.settings],
-  () => relayout(),
+  async () => {
+    await nextTick();
+    relayout();
+  },
   { deep: true },
 );
 
@@ -112,6 +160,11 @@ function onWheel(event: WheelEvent) {
   event.preventDefault();
   if (event.deltaY > 0) goNext();
   else if (event.deltaY < 0) goPrev();
+}
+
+function onContextMenu(event: MouseEvent) {
+  event.preventDefault();
+  emit("open-settings");
 }
 
 defineExpose({ goNext, goPrev, relayout });
@@ -123,7 +176,17 @@ defineExpose({ goNext, goPrev, relayout });
     class="reader"
     :style="readerStyle"
     @wheel="onWheel"
+    @contextmenu="onContextMenu"
   >
-    <p v-for="(line, idx) in page.lines" :key="idx" class="line">{{ line }}</p>
+    <span ref="measureRef" class="measure-span" aria-hidden="true"> </span>
+    <p ref="lineProbeRef" class="line line-probe" :style="lineStyle">测</p>
+    <p
+      v-for="(line, idx) in page.lines"
+      :key="idx"
+      class="line"
+      :style="lineStyle"
+    >
+      {{ line }}
+    </p>
   </section>
 </template>

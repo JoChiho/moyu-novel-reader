@@ -1,4 +1,3 @@
-import { load, type Store } from "@tauri-apps/plugin-store";
 import {
   APP_STATE_VERSION,
   DEFAULT_SETTINGS,
@@ -6,18 +5,11 @@ import {
   type Book,
   type ReaderSettings,
 } from "../types";
-
-const STORE_PATH = "moyu-reader-state.json";
-const STORE_KEY = "appState";
-
-let storePromise: Promise<Store> | null = null;
-
-function getStore() {
-  if (!storePromise) {
-    storePromise = load(STORE_PATH, { autoSave: true, defaults: {} });
-  }
-  return storePromise;
-}
+import { toPlain } from "../utils/serialize";
+import {
+  platformLoadAppState,
+  platformSaveAppState,
+} from "./platform";
 
 function defaultState(): AppState {
   return {
@@ -29,8 +21,7 @@ function defaultState(): AppState {
 }
 
 export async function loadAppState(): Promise<AppState> {
-  const store = await getStore();
-  const saved = await store.get<AppState>(STORE_KEY);
+  const saved = await platformLoadAppState();
   if (!saved) return defaultState();
   return {
     ...defaultState(),
@@ -41,9 +32,7 @@ export async function loadAppState(): Promise<AppState> {
 }
 
 export async function saveAppState(state: AppState): Promise<void> {
-  const store = await getStore();
-  await store.set(STORE_KEY, state);
-  await store.save();
+  await platformSaveAppState(toPlain(state));
 }
 
 export async function upsertBook(book: Book, state: AppState): Promise<AppState> {

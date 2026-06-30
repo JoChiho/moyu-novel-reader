@@ -1,10 +1,7 @@
 import type { LayoutMetrics, PageSlice, ReaderSettings } from "../types";
 
-const measureCanvas = document.createElement("canvas");
-const measureCtx = measureCanvas.getContext("2d")!;
-
-function applyFont(settings: ReaderSettings) {
-  measureCtx.font = `${settings.fontSize}px ${settings.fontFamily}`;
+export interface TextMeasure {
+  measureWidth: (text: string) => number;
 }
 
 function isCjk(char: string): boolean {
@@ -18,13 +15,9 @@ function isBreakableBefore(char: string): boolean {
 export function computeLayoutMetrics(
   containerWidth: number,
   containerHeight: number,
-  settings: ReaderSettings,
+  lineHeightPx: number,
 ): LayoutMetrics {
-  const lineHeightPx = settings.fontSize * settings.lineHeight;
-  const maxLines = Math.max(
-    1,
-    Math.floor(containerHeight / lineHeightPx),
-  );
+  const maxLines = Math.max(1, Math.floor(containerHeight / lineHeightPx));
   return {
     width: containerWidth,
     height: containerHeight,
@@ -33,14 +26,11 @@ export function computeLayoutMetrics(
   };
 }
 
-function measureTextWidth(text: string): number {
-  return measureCtx.measureText(text).width;
-}
-
 function breakLine(
   text: string,
   start: number,
   maxWidth: number,
+  measure: TextMeasure,
 ): { line: string; next: number } {
   if (start >= text.length) {
     return { line: "", next: start };
@@ -57,7 +47,8 @@ function breakLine(
     const ch = text[end];
     if (ch === "\n") break;
 
-    const nextWidth = measureTextWidth(text.slice(start, end + 1));
+    const slice = text.slice(start, end + 1);
+    const nextWidth = measure.measureWidth(slice);
     if (nextWidth > maxWidth) {
       if (end === start) {
         return { line: ch, next: start + 1 };
@@ -91,9 +82,8 @@ export function paginateFromOffset(
   text: string,
   offset: number,
   metrics: LayoutMetrics,
-  settings: ReaderSettings,
+  measure: TextMeasure,
 ): PageSlice {
-  applyFont(settings);
   const lines: string[] = [];
   let cursor = Math.min(Math.max(0, offset), text.length);
 
@@ -104,37 +94,26 @@ export function paginateFromOffset(
       continue;
     }
 
-    const { line, next } = breakLine(text, cursor, metrics.width);
+    const { line, next } = breakLine(text, cursor, metrics.width, measure);
     if (line.length === 0 && next === cursor) break;
     lines.push(line);
     cursor = next;
   }
 
-  while (lines.length < metrics.maxLines) {
-    lines.push("");
-  }
-
   return {
     start: offset,
     end: cursor,
-    lines: lines.slice(0, metrics.maxLines),
+    lines,
   };
 }
 
-export function getPageCountEstimate(
-  text: string,
-  metrics: LayoutMetrics,
-  settings: ReaderSettings,
-): number {
-  if (!text.length) return 1;
-  let offset = 0;
-  let pages = 0;
-  while (offset < text.length) {
-    const page = paginateFromOffset(text, offset, metrics, settings);
-    if (page.end <= offset) break;
-    offset = page.end;
-    pages += 1;
-    if (pages > 100_000) break;
-  }
-  return Math.max(1, pages);
+/** @deprecated canvas helper kept for tests that inject custom measure */
+export function createCanvasMeasure(settings: ReaderSettings): TextMeasure {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 2D context unavailable");
+  ctx.font = `${settings.fontSize}px ${settings.fontFamily}`;
+  return {
+    measureWidth: (text: string) => ctx.measureText(text).width,
+  };
 }

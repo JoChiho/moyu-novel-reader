@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { getCurrentWindow } from "@tauri-apps/api/window";
-
 defineProps<{
   title: string;
   progressText: string;
@@ -11,19 +9,15 @@ const emit = defineEmits<{
   openSettings: [];
   importBook: [];
 }>();
-
-async function startDrag() {
-  await getCurrentWindow().startDragging();
-}
 </script>
 
 <template>
-  <header class="title-bar" data-tauri-drag-region @mousedown="startDrag">
-    <div class="title-area" data-tauri-drag-region>
+  <header class="title-bar">
+    <div class="title-area drag-region">
       <span class="book-title">{{ title }}</span>
       <span class="progress">{{ progressText }}</span>
     </div>
-    <div class="actions" @mousedown.stop>
+    <div class="actions no-drag">
       <button class="icon-btn" title="导入 TXT" @click="emit('importBook')">
         +
       </button>

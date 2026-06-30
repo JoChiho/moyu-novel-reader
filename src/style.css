@@ -32,6 +32,28 @@ button {
   height: 100%;
 }
 
+.app-transparent {
+  background: transparent !important;
+}
+
+.drag-strip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  z-index: 10;
+  opacity: 0;
+}
+
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
 .title-bar {
   display: flex;
   align-items: center;
@@ -89,11 +111,33 @@ button {
 
 .reader {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
+  position: relative;
+}
+
+.measure-span {
+  position: absolute;
+  visibility: hidden;
+  white-space: pre;
+  pointer-events: none;
+  top: 0;
+  left: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.line-probe {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  top: 0;
+  left: 0;
 }
 
 .line {
   margin: 0;
+  padding: 0;
   white-space: pre;
   overflow: hidden;
 }
@@ -212,4 +256,47 @@ button {
   color: #b33;
   font-size: 12px;
   padding: 4px 6px;
+}
+
+.shortcut-recorder {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.recorder-btn {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px dashed rgba(0, 0, 0, 0.25);
+  background: #fff;
+  text-align: left;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.recorder-btn.recording {
+  border-color: #3d8b6e;
+  color: #3d8b6e;
+}
+
+.error {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #b33;
+}
+
+.toast {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 13px;
+  z-index: 30;
+  pointer-events: none;
 }
