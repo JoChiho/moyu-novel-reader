@@ -34,6 +34,10 @@ const {
   setFrameRestoreSuspended,
 } = require("./winFrameless.cjs");
 const { createMoyuTimer } = require("./moyuTimer.cjs");
+const {
+  appendSession,
+  calcWeekMonthTotals,
+} = require("./moyuHistory.cjs");
 
 const store = new Store({ name: "moyu-reader-state" });
 const STORE_KEY = "appState";
@@ -87,19 +91,63 @@ function getMoyuTotalMs() {
 }
 
 function setMoyuTotalMs(ms) {
-  const state = store.get(STORE_KEY) ?? {};
-  store.set(STORE_KEY, {
-    ...state,
-    moyuStats: {
-      totalVisibleMs: Math.max(0, Math.round(Number(ms) || 0)),
-    },
+  store.set(
+    `${STORE_KEY}.moyuStats.totalVisibleMs`,
+    Math.max(0, Math.round(Number(ms) || 0)),
+  );
+}
+
+function getMoyuSessions() {
+  const sessions = store.get(`${STORE_KEY}.moyuStats.sessions`);
+  return Array.isArray(sessions) ? sessions : [];
+}
+
+function appendMoyuSession(session) {
+  const next = appendSession(getMoyuSessions(), {
+    id: crypto.randomUUID(),
+    startedAt: session.startedAt,
+    endedAt: session.endedAt,
+    durationMs: session.durationMs,
   });
+  store.set(`${STORE_KEY}.moyuStats.sessions`, next);
+}
+
+function clearMoyuSessions() {
+  store.set(`${STORE_KEY}.moyuStats.sessions`, []);
+}
+
+function getMoyuTrackingEnabled() {
+  return store.get(`${STORE_KEY}.moyuStats.trackingEnabled`) !== false;
+}
+
+function setMoyuTrackingEnabled(enabled) {
+  store.set(`${STORE_KEY}.moyuStats.trackingEnabled`, !!enabled);
+}
+
+function buildMoyuStatsPayload(timerSnap) {
+  const now = Date.now();
+  const sessions = getMoyuSessions();
+  const sessionStartAt = moyuTimer?.getSessionStartAt?.() ?? null;
+  const periodTotals = calcWeekMonthTotals(
+    sessions,
+    now,
+    sessionStartAt,
+    timerSnap.currentSessionMs,
+  );
+
+  return {
+    ...timerSnap,
+    ...periodTotals,
+    sessions: sessions.slice(0, 50),
+    trackingEnabled: getMoyuTrackingEnabled(),
+  };
 }
 
 function broadcastMoyuStatsTick(snapshot) {
+  const payload = buildMoyuStatsPayload(snapshot);
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
-      win.webContents.send("moyu-stats-tick", snapshot);
+      win.webContents.send("moyu-stats-tick", payload);
     }
   }
 }
@@ -110,6 +158,9 @@ function initMoyuTimer(win) {
     setTotalMs: setMoyuTotalMs,
     getWindow: () => mainWindow,
     onTick: broadcastMoyuStatsTick,
+    onSessionEnd: appendMoyuSession,
+    getTrackingEnabled: getMoyuTrackingEnabled,
+    setTrackingEnabled: setMoyuTrackingEnabled,
   });
   moyuTimer.attachWindow(win);
 }
@@ -126,13 +177,17 @@ function installMainWindowWheelForward(win) {
   if (!win || win.isDestroyed()) return;
 
   win.webContents.on("before-input-event", (_event, input) => {
-    if (win.isDestroyed() || !win.isFocused()) return;
+    if (win.isDestroyed() || !win.isVisible()) return;
     if (input.type !== "mouseWheel") return;
 
     const y = Number(input.y ?? 0);
     if (y < READER_CHROME_HEIGHT_PX) return;
 
-    const deltaY = Number(input.deltaY ?? input.wheelDeltaY ?? 0);
+    let deltaY = Number(input.deltaY ?? 0);
+    if (!deltaY) {
+      const wheelDeltaY = Number(input.wheelDeltaY ?? 0);
+      if (wheelDeltaY) deltaY = -wheelDeltaY;
+    }
     if (!deltaY) return;
 
     win.webContents.send("main-window-wheel", { deltaY });
@@ -352,6 +407,11 @@ app.whenReady().then(() => {
     return { ok: true };
   });
 
+  ipcMain.handle("open-moyu-window", () => {
+    openChildWindow("moyu", mainWindow, store, getDevUrl());
+    return { ok: true };
+  });
+
   ipcMain.handle("probe-global-shortcut", (_e, shortcut) => {
     return probeGlobalShortcut(globalShortcut, shortcut);
   });
@@ -471,17 +531,24 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("get-moyu-stats", () => {
-    return moyuTimer?.snapshot() ?? {
+    const timerSnap = moyuTimer?.snapshot() ?? {
       totalVisibleMs: getMoyuTotalMs(),
       currentSessionMs: 0,
       combinedVisibleMs: getMoyuTotalMs(),
       isRunning: false,
     };
+    return buildMoyuStatsPayload(timerSnap);
   });
 
   ipcMain.handle("reset-moyu-stats", (event) => {
     moyuTimer?.resetStats();
+    clearMoyuSessions();
     broadcastAppStateUpdated(event.sender);
+    return { ok: true };
+  });
+
+  ipcMain.handle("set-moyu-tracking", (_e, enabled) => {
+    moyuTimer?.setTrackingEnabled(!!enabled);
     return { ok: true };
   });
 

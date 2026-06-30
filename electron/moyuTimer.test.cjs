@@ -52,4 +52,60 @@ describe("moyuTimer.cjs", () => {
     timer.resetStats();
     assert.equal(total, 0);
   });
+
+  it("reset disables tracking until started again", () => {
+    let total = 9_000;
+    let tracking = true;
+    const mockWin = {
+      isDestroyed: () => false,
+      isVisible: () => true,
+    };
+    const timer = createMoyuTimer({
+      getTotalMs: () => total,
+      setTotalMs: (ms) => {
+        total = ms;
+      },
+      getWindow: () => mockWin,
+      onTick: () => {},
+      getTrackingEnabled: () => tracking,
+      setTrackingEnabled: (enabled) => {
+        tracking = enabled;
+      },
+    });
+
+    timer.startSession();
+    timer.resetStats();
+    assert.equal(total, 0);
+    assert.equal(tracking, false);
+    assert.equal(timer.getSessionStartAt(), null);
+
+    timer.setTrackingEnabled(true);
+    assert.equal(tracking, true);
+    assert.notEqual(timer.getSessionStartAt(), null);
+  });
+
+  it("records ended sessions on flush", () => {
+    const sessions = [];
+    let total = 0;
+    const mockWin = {
+      isDestroyed: () => false,
+      isVisible: () => true,
+    };
+    const timer = createMoyuTimer({
+      getTotalMs: () => total,
+      setTotalMs: (ms) => {
+        total = ms;
+      },
+      getWindow: () => mockWin,
+      onTick: () => {},
+      onSessionEnd: (session) => sessions.push(session),
+      minSessionMs: 0,
+    });
+
+    timer.startSession();
+    timer.pauseSession();
+    assert.equal(sessions.length, 1);
+    assert.ok(sessions[0].durationMs >= 0);
+    assert.equal(timer.getSessionStartAt(), null);
+  });
 });

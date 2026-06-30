@@ -6,6 +6,7 @@ const childWindows = {
   settings: null,
   shelf: null,
   navigator: null,
+  moyu: null,
 };
 
 const CHILD_CONFIG = {
@@ -35,6 +36,15 @@ const CHILD_CONFIG = {
     minHeight: 400,
     hash: "navigator",
     boundsKey: "navigatorWindowBounds",
+  },
+  moyu: {
+    title: "摸鱼阅读器 - 摸鱼计算器",
+    width: 420,
+    height: 640,
+    minWidth: 320,
+    minHeight: 480,
+    hash: "moyu",
+    boundsKey: "moyuWindowBounds",
   },
 };
 
@@ -90,6 +100,7 @@ function openChildWindow(type, mainWindow, store, devUrl) {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      partition: `persist:child-${type}`,
     },
   });
 

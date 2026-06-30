@@ -14,6 +14,7 @@ const emit = defineEmits<{
   openSettings: [];
   openShelf: [];
   openNavigator: [];
+  openMoyu: [];
   importBook: [];
 }>();
 
@@ -57,6 +58,9 @@ const toolbarStyle = computed(() => {
       </button>
       <button class="icon-btn toolbar-btn" title="章节与书签" @click="emit('openNavigator')">
         导
+      </button>
+      <button class="icon-btn toolbar-btn" title="摸鱼计算器" @click="emit('openMoyu')">
+        鱼
       </button>
       <button class="icon-btn toolbar-btn" title="设置" @click="emit('openSettings')">
         ⚙

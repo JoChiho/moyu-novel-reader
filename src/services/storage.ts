@@ -44,6 +44,8 @@ export async function loadAppState(): Promise<AppState> {
     moyuStats: {
       ...DEFAULT_MOYU_STATS,
       ...saved.moyuStats,
+      sessions: saved.moyuStats?.sessions ?? [],
+      trackingEnabled: saved.moyuStats?.trackingEnabled !== false,
     },
   };
 }

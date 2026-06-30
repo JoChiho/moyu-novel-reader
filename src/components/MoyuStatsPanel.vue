@@ -4,7 +4,9 @@ import {
   platformGetMoyuStats,
   platformOnMoyuStatsTick,
   platformResetMoyuStats,
+  platformSetMoyuTracking,
 } from "../services/platform";
+import { formatSessionRange } from "../utils/moyuHistory";
 import {
   calcHourlyRate,
   calcSalaryAmount,
@@ -22,12 +24,18 @@ const emit = defineEmits<{
   "update:settings": [value: Partial<ReaderSettings>];
 }>();
 
-const snapshot = ref<MoyuStatsSnapshot>({
+const emptySnapshot = (): MoyuStatsSnapshot => ({
   totalVisibleMs: 0,
   currentSessionMs: 0,
   combinedVisibleMs: 0,
   isRunning: false,
+  weekVisibleMs: 0,
+  monthVisibleMs: 0,
+  sessions: [],
+  trackingEnabled: true,
 });
+
+const snapshot = ref<MoyuStatsSnapshot>(emptySnapshot());
 
 let unsubscribeTick: (() => void) | null = null;
 
@@ -41,13 +49,37 @@ const totalMoney = computed(() =>
   calcSalaryAmount(snapshot.value.combinedVisibleMs, hourlyRate.value),
 );
 
+const weekMoney = computed(() =>
+  calcSalaryAmount(snapshot.value.weekVisibleMs, hourlyRate.value),
+);
+
+const monthMoney = computed(() =>
+  calcSalaryAmount(snapshot.value.monthVisibleMs, hourlyRate.value),
+);
+
+const showSalary = computed(
+  () => props.settings.salaryEnabled && props.settings.salaryMonthly > 0,
+);
+
 async function refreshSnapshot() {
   snapshot.value = await platformGetMoyuStats();
 }
 
 async function resetStats() {
-  if (!window.confirm("确定清零全部摸鱼统计？此操作不可恢复。")) return;
+  if (
+    !window.confirm(
+      "确定清零全部摸鱼统计与历史记录？清零后需点击「开始计时」才会重新统计。",
+    )
+  ) {
+    return;
+  }
   await platformResetMoyuStats();
+  await refreshSnapshot();
+}
+
+async function toggleTracking() {
+  const next = !snapshot.value.trackingEnabled;
+  await platformSetMoyuTracking(next);
   await refreshSnapshot();
 }
 
@@ -67,19 +99,16 @@ onUnmounted(() => {
   <section class="section moyu-stats-section">
     <h3>摸鱼计算器</h3>
     <p class="hint">
-      主窗口可见时累计时长；隐藏窗口（快捷键 / 托盘）后暂停。数据仅存本机。
+      主窗口可见时累计时长；隐藏窗口（快捷键 / 托盘）后暂停并写入历史。数据仅存本机。
     </p>
 
-    <div class="moyu-stats-grid">
+    <div class="moyu-stats-grid moyu-stats-grid-4">
       <div class="moyu-stat-card">
         <span class="moyu-stat-label">本次摸鱼</span>
         <span class="moyu-stat-value">{{
           formatClockDuration(snapshot.currentSessionMs)
         }}</span>
-        <span
-          v-if="settings.salaryEnabled && settings.salaryMonthly > 0"
-          class="moyu-stat-sub"
-        >
+        <span v-if="showSalary" class="moyu-stat-sub">
           {{ formatMoneyYuan(sessionMoney) }}
         </span>
       </div>
@@ -91,16 +120,57 @@ onUnmounted(() => {
         <span class="moyu-stat-sub mono">{{
           formatClockDuration(snapshot.combinedVisibleMs)
         }}</span>
-        <span
-          v-if="settings.salaryEnabled && settings.salaryMonthly > 0"
-          class="moyu-stat-sub"
-        >
+        <span v-if="showSalary" class="moyu-stat-sub">
           合计 {{ formatMoneyYuan(totalMoney) }}
+        </span>
+      </div>
+      <div class="moyu-stat-card">
+        <span class="moyu-stat-label">本周摸鱼</span>
+        <span class="moyu-stat-value moyu-stat-value-sm">{{
+          formatLongDuration(snapshot.weekVisibleMs)
+        }}</span>
+        <span class="moyu-stat-sub mono">{{
+          formatClockDuration(snapshot.weekVisibleMs)
+        }}</span>
+        <span v-if="showSalary" class="moyu-stat-sub">
+          {{ formatMoneyYuan(weekMoney) }}
+        </span>
+      </div>
+      <div class="moyu-stat-card">
+        <span class="moyu-stat-label">本月摸鱼</span>
+        <span class="moyu-stat-value moyu-stat-value-sm">{{
+          formatLongDuration(snapshot.monthVisibleMs)
+        }}</span>
+        <span class="moyu-stat-sub mono">{{
+          formatClockDuration(snapshot.monthVisibleMs)
+        }}</span>
+        <span v-if="showSalary" class="moyu-stat-sub">
+          {{ formatMoneyYuan(monthMoney) }}
         </span>
       </div>
     </div>
 
-    <p v-if="snapshot.isRunning" class="moyu-running">计时中…</p>
+    <div class="moyu-tracking-row">
+      <p
+        class="moyu-tracking-status"
+        :class="{ 'moyu-tracking-active': snapshot.trackingEnabled && snapshot.isRunning }"
+      >
+        {{
+          snapshot.trackingEnabled
+            ? snapshot.isRunning
+              ? "计时中…"
+              : "计时已开启（主窗口隐藏时暂停）"
+            : "计时已暂停"
+        }}
+      </p>
+      <button
+        type="button"
+        class="moyu-tracking-btn"
+        @click="toggleTracking"
+      >
+        {{ snapshot.trackingEnabled ? "暂停计时" : "开始计时" }}
+      </button>
+    </div>
 
     <label class="checkbox">
       <input
@@ -122,7 +192,7 @@ onUnmounted(() => {
         min="0"
         step="100"
         :value="settings.salaryMonthly"
-        @change="
+        @input="
           emit('update:settings', {
             salaryMonthly: Math.max(
               0,
@@ -141,7 +211,7 @@ onUnmounted(() => {
         max="31"
         step="1"
         :value="settings.salaryWorkDaysPerMonth"
-        @change="
+        @input="
           emit('update:settings', {
             salaryWorkDaysPerMonth: Math.max(
               1,
@@ -160,7 +230,7 @@ onUnmounted(() => {
         max="24"
         step="0.5"
         :value="settings.salaryHoursPerDay"
-        @change="
+        @input="
           emit('update:settings', {
             salaryHoursPerDay: Math.max(
               1,
@@ -171,9 +241,29 @@ onUnmounted(() => {
       />
     </label>
 
-    <p v-if="settings.salaryEnabled && settings.salaryMonthly > 0" class="hint">
+    <p v-if="showSalary" class="hint">
       时薪约 {{ formatMoneyYuan(hourlyRate) }} / 小时（按月薪 ÷ 工作天数 ÷ 每日工时）
     </p>
+
+    <div class="moyu-history">
+      <h4>摸鱼历史</h4>
+      <p v-if="!snapshot.sessions.length" class="hint moyu-history-empty">
+        暂无记录。每次隐藏主窗口后会保存一段会话（满 1 秒）。
+      </p>
+      <ul v-else class="moyu-history-list">
+        <li v-for="session in snapshot.sessions" :key="session.id">
+          <span class="moyu-history-range">{{
+            formatSessionRange(session.startedAt, session.endedAt)
+          }}</span>
+          <span class="moyu-history-duration">{{
+            formatLongDuration(session.durationMs)
+          }}</span>
+          <span v-if="showSalary" class="moyu-history-money">{{
+            formatMoneyYuan(calcSalaryAmount(session.durationMs, hourlyRate))
+          }}</span>
+        </li>
+      </ul>
+    </div>
 
     <button type="button" class="moyu-reset-btn" @click="resetStats">
       清零统计

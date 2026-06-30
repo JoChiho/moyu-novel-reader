@@ -48,6 +48,7 @@ export interface MoyuBridge {
   openSettingsWindow: () => Promise<{ ok: boolean }>;
   openShelfWindow: () => Promise<{ ok: boolean }>;
   openNavigatorWindow: () => Promise<{ ok: boolean }>;
+  openMoyuWindow: () => Promise<{ ok: boolean }>;
   shelfOpenBook: (bookId: string) => Promise<{ ok: boolean }>;
   navigatorJump: (offset: number) => Promise<{ ok: boolean }>;
   probeGlobalShortcut: (shortcut: string) => Promise<ShortcutProbeResult>;
@@ -57,6 +58,7 @@ export interface MoyuBridge {
   onMainWindowWheel: (callback: (payload: { deltaY: number }) => void) => () => void;
   getMoyuStats: () => Promise<MoyuStatsSnapshot>;
   resetMoyuStats: () => Promise<{ ok: boolean }>;
+  setMoyuTracking: (enabled: boolean) => Promise<{ ok: boolean }>;
   onMoyuStatsTick: (callback: (payload: MoyuStatsSnapshot) => void) => () => void;
 }
 

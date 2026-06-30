@@ -14,6 +14,7 @@ import {
   settingsLayoutHash,
 } from "../services/pageCache";
 import { platformSetFrameRestoreSuspended } from "../services/platform";
+import { consumeWheelTurn } from "../utils/wheelTurn";
 import { readerBackground, readerTextColor } from "../utils/color";
 import type { PageSlice, ReaderSettings } from "../types";
 
@@ -225,6 +226,13 @@ function onContextMenu(event: MouseEvent) {
   emit("open-settings");
 }
 
+function onWheel(event: WheelEvent) {
+  if (altHeld.value || !event.deltaY || !consumeWheelTurn()) return;
+  event.preventDefault();
+  if (event.deltaY > 0) goNext();
+  else goPrev();
+}
+
 defineExpose({ goNext, goPrev, relayout });
 </script>
 
@@ -235,6 +243,7 @@ defineExpose({ goNext, goPrev, relayout });
     :class="{ 'reader-alt-drag': altHeld }"
     :style="readerStyle"
     @contextmenu="onContextMenu"
+    @wheel="onWheel"
   >
     <span ref="measureRef" class="measure-span" aria-hidden="true"> </span>
     <p ref="lineProbeRef" class="line line-probe" :style="probeStyle">测</p>

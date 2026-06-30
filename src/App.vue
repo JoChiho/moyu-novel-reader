@@ -7,6 +7,7 @@ import { bindToggleShortcut } from "./composables/useGlobalShortcut";
 import { useWindowVisibility } from "./composables/useWindowVisibility";
 import { pickAndReadBook, reloadBookContent } from "./services/bookImport";
 import { matchesPageTurnKey } from "./utils/pageTurn";
+import { consumeWheelTurn } from "./utils/wheelTurn";
 import { detectChapters } from "./utils/chapters";
 import {
   addBookmark,
@@ -21,6 +22,7 @@ import {
   platformOnDisplayMetricsChanged,
   platformOnMainWindowBlur,
   platformOnMainWindowWheel,
+  platformOpenMoyuWindow,
   platformOpenNavigatorWindow,
   platformOpenSettingsWindow,
   platformOpenShelfWindow,
@@ -291,7 +293,7 @@ function hideChromeBar() {
 }
 
 function handleWheelDelta(deltaY: number) {
-  if (!isReading.value || !readerRef.value || !deltaY) return;
+  if (!isReading.value || !readerRef.value || !deltaY || !consumeWheelTurn()) return;
   if (deltaY > 0) readerRef.value.goNext();
   else readerRef.value.goPrev();
 }
@@ -359,6 +361,7 @@ onUnmounted(() => {
         @open-settings="platformOpenSettingsWindow()"
         @open-shelf="platformOpenShelfWindow()"
         @open-navigator="platformOpenNavigatorWindow()"
+        @open-moyu="platformOpenMoyuWindow()"
         @import-book="handleImport"
       />
     </div>
@@ -371,6 +374,7 @@ onUnmounted(() => {
         @open-settings="platformOpenSettingsWindow()"
         @open-shelf="platformOpenShelfWindow()"
         @open-navigator="platformOpenNavigatorWindow()"
+        @open-moyu="platformOpenMoyuWindow()"
         @import-book="handleImport"
       />
     </div>

@@ -40,11 +40,23 @@ function flushMoyuSession(totalVisibleMs, sessionStartAt, now = Date.now()) {
 }
 
 /**
+ * @typedef {{
+ *   startedAt: number,
+ *   endedAt: number,
+ *   durationMs: number,
+ * }} MoyuSessionRecord
+ */
+
+/**
  * @param {{
  *   getTotalMs: () => number,
  *   setTotalMs: (ms: number) => void,
  *   getWindow: () => import("electron").BrowserWindow | null,
  *   onTick: (snapshot: ReturnType<typeof getMoyuSnapshot>) => void,
+ *   onSessionEnd?: (session: MoyuSessionRecord) => void,
+ *   minSessionMs?: number,
+ *   getTrackingEnabled?: () => boolean,
+ *   setTrackingEnabled?: (enabled: boolean) => void,
  * }} deps
  */
 function createMoyuTimer(deps) {
@@ -53,6 +65,14 @@ function createMoyuTimer(deps) {
   /** @type {NodeJS.Timeout | null} */
   let tickTimer = null;
   let suspended = false;
+  const minSessionMs = Math.max(0, deps.minSessionMs ?? 1000);
+
+  function recordEndedSession(startedAt, endedAt) {
+    if (!startedAt || !deps.onSessionEnd) return;
+    const durationMs = Math.max(0, endedAt - startedAt);
+    if (durationMs < minSessionMs) return;
+    deps.onSessionEnd({ startedAt, endedAt, durationMs });
+  }
 
   function snapshot(now = Date.now()) {
     return getMoyuSnapshot(deps.getTotalMs(), sessionStartAt, now);
@@ -74,15 +94,23 @@ function createMoyuTimer(deps) {
     tickTimer = setInterval(() => emitTick(), 1000);
   }
 
-  function flush() {
-    const next = flushMoyuSession(deps.getTotalMs(), sessionStartAt);
+  function flush(now = Date.now()) {
+    const startedAt = sessionStartAt;
+    const next = flushMoyuSession(deps.getTotalMs(), sessionStartAt, now);
     sessionStartAt = next.sessionStartAt;
     deps.setTotalMs(next.totalVisibleMs);
-    return snapshot();
+    if (startedAt) {
+      recordEndedSession(startedAt, now);
+    }
+    return snapshot(now);
+  }
+
+  function isTrackingEnabled() {
+    return deps.getTrackingEnabled ? deps.getTrackingEnabled() : true;
   }
 
   function canRun() {
-    if (suspended) return false;
+    if (suspended || !isTrackingEnabled()) return false;
     const win = deps.getWindow();
     return !!(win && !win.isDestroyed() && win.isVisible());
   }
@@ -91,6 +119,17 @@ function createMoyuTimer(deps) {
     if (!canRun() || sessionStartAt) return;
     sessionStartAt = Date.now();
     startTick();
+    emitTick();
+  }
+
+  function setTrackingEnabled(enabled) {
+    const next = !!enabled;
+    deps.setTrackingEnabled?.(next);
+    if (next) {
+      startSession();
+    } else {
+      pauseSession();
+    }
     emitTick();
   }
 
@@ -104,7 +143,12 @@ function createMoyuTimer(deps) {
   function resetStats() {
     pauseSession();
     deps.setTotalMs(0);
+    deps.setTrackingEnabled?.(false);
     emitTick();
+  }
+
+  function getSessionStartAt() {
+    return sessionStartAt;
   }
 
   function onPowerSuspend() {
@@ -135,9 +179,12 @@ function createMoyuTimer(deps) {
     pauseSession,
     flush,
     resetStats,
+    setTrackingEnabled,
+    isTrackingEnabled,
     onPowerSuspend,
     onPowerResume,
     snapshot,
+    getSessionStartAt,
     stopTick,
   };
 }

@@ -3,13 +3,15 @@ import App from "./App.vue";
 import SettingsWindowApp from "./SettingsWindowApp.vue";
 import ShelfWindowApp from "./ShelfWindowApp.vue";
 import NavigatorWindowApp from "./NavigatorWindowApp.vue";
+import MoyuWindowApp from "./MoyuWindowApp.vue";
 import "./style.css";
 
-function getWindowMode(): "reader" | "settings" | "shelf" | "navigator" {
+function getWindowMode(): "reader" | "settings" | "shelf" | "navigator" | "moyu" {
   const hash = window.location.hash.replace("#", "").trim();
   if (hash === "settings") return "settings";
   if (hash === "shelf") return "shelf";
   if (hash === "navigator") return "navigator";
+  if (hash === "moyu") return "moyu";
   return "reader";
 }
 
@@ -27,6 +29,8 @@ const root =
       ? ShelfWindowApp
       : mode === "navigator"
         ? NavigatorWindowApp
-        : App;
+        : mode === "moyu"
+          ? MoyuWindowApp
+          : App;
 
 createApp(root).mount("#app");

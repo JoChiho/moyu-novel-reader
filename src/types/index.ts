@@ -63,8 +63,18 @@ export interface ReaderSettings {
   salaryHoursPerDay: number;
 }
 
+export interface MoyuSession {
+  id: string;
+  startedAt: number;
+  endedAt: number;
+  durationMs: number;
+}
+
 export interface MoyuStats {
   totalVisibleMs: number;
+  sessions?: MoyuSession[];
+  /** false after reset until user clicks 开始计时 */
+  trackingEnabled?: boolean;
 }
 
 export interface MoyuStatsSnapshot {
@@ -72,6 +82,10 @@ export interface MoyuStatsSnapshot {
   currentSessionMs: number;
   combinedVisibleMs: number;
   isRunning: boolean;
+  weekVisibleMs: number;
+  monthVisibleMs: number;
+  sessions: MoyuSession[];
+  trackingEnabled: boolean;
 }
 
 export interface AppState {
@@ -132,6 +146,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
 
 export const DEFAULT_MOYU_STATS: MoyuStats = {
   totalVisibleMs: 0,
+  sessions: [],
+  trackingEnabled: true,
 };
 
-export const APP_STATE_VERSION = 7;
+export const APP_STATE_VERSION = 8;

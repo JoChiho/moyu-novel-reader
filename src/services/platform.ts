@@ -115,6 +115,10 @@ export async function platformOpenNavigatorWindow(): Promise<void> {
   await bridge().openNavigatorWindow();
 }
 
+export async function platformOpenMoyuWindow(): Promise<void> {
+  await bridge().openMoyuWindow();
+}
+
 export async function platformNavigatorJump(offset: number): Promise<void> {
   await bridge().navigatorJump(offset);
 }
@@ -148,6 +152,10 @@ export async function platformGetMoyuStats(): Promise<MoyuStatsSnapshot> {
 
 export async function platformResetMoyuStats(): Promise<void> {
   await bridge().resetMoyuStats();
+}
+
+export async function platformSetMoyuTracking(enabled: boolean): Promise<void> {
+  await bridge().setMoyuTracking(enabled);
 }
 
 export function platformOnMoyuStatsTick(

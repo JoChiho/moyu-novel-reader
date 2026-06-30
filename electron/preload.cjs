@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld("moyu", {
   openSettingsWindow: () => ipcRenderer.invoke("open-settings-window"),
   openShelfWindow: () => ipcRenderer.invoke("open-shelf-window"),
   openNavigatorWindow: () => ipcRenderer.invoke("open-navigator-window"),
+  openMoyuWindow: () => ipcRenderer.invoke("open-moyu-window"),
   shelfOpenBook: (bookId) => ipcRenderer.invoke("shelf-open-book", bookId),
   navigatorJump: (offset) => ipcRenderer.invoke("navigator-jump-offset", offset),
   probeGlobalShortcut: (shortcut) =>
@@ -45,6 +46,7 @@ contextBridge.exposeInMainWorld("moyu", {
   },
   getMoyuStats: () => ipcRenderer.invoke("get-moyu-stats"),
   resetMoyuStats: () => ipcRenderer.invoke("reset-moyu-stats"),
+  setMoyuTracking: (enabled) => ipcRenderer.invoke("set-moyu-tracking", enabled),
   onMoyuStatsTick: (callback) => {
     const handler = (_event, payload) => callback(payload);
     ipcRenderer.on("moyu-stats-tick", handler);
