@@ -556,9 +556,10 @@ Git tag：v0.1.0 → v0.3.0 → v0.4.0 → v0.5.0 → v0.6.0（已发布）
 
   1. 确认 package.json version = 0.6.0
   2. npm run test（93 项全绿）
-  3. npm run dist
-     → release/moyu-novel-reader-0.6.0-portable.exe
+  3. npm run dist（或 npm run build + electron-builder --win portable）
+     → release/moyu-novel-reader-0.6.0-portable.exe（约 75 MB）
      → scripts/verify-dist.cjs 校验体积 ≥ 50MB
+     → 打包图标使用 app-icon.png（512×512），勿用 tray-icon.png（32×32）
   4. 更新 UserManualDialog.vue、README.md、开发流程.txt、KNOWN_ISSUES.md
   5. git add → commit → git tag -a v0.6.0 → git push origin main --tags
   6. GitHub Release（tag v0.6.0）：
