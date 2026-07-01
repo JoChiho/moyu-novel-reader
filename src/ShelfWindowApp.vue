@@ -37,11 +37,8 @@ async function handleImport() {
   try {
     const result = await pickAndReadBook(bookReadOptions());
     if (!result || !appState.value) return;
-    const { book, content } = result;
-    appState.value = await upsertBook(
-      { ...book, totalChars: content.length },
-      appState.value,
-    );
+    const { book } = result;
+    appState.value = await upsertBook(book, appState.value);
     showToast(`已导入：${book.title}`);
   } catch (err) {
     showToast(err instanceof Error ? err.message : "导入失败");

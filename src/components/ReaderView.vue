@@ -13,7 +13,10 @@ import {
   setCachedPage,
   settingsLayoutHash,
 } from "../services/pageCache";
-import { platformSetFrameRestoreSuspended } from "../services/platform";
+import {
+  platformFocusMainWindow,
+  platformSetFrameRestoreSuspended,
+} from "../services/platform";
 import { consumeWheelTurn } from "../utils/wheelTurn";
 import {
   readerBackground,
@@ -27,12 +30,16 @@ const props = defineProps<{
   charOffset: number;
   settings: ReaderSettings;
   autoTextColor?: string | null;
+  hasNextChapter?: boolean;
+  hasPrevChapter?: boolean;
 }>();
 
 const emit = defineEmits<{
   "update:charOffset": [value: number];
   nextPage: [];
   prevPage: [];
+  chapterNext: [];
+  chapterPrev: [];
   "open-settings": [];
 }>();
 
@@ -163,19 +170,43 @@ function getMetrics() {
 }
 
 function goNext() {
-  if (page.value.end >= props.content.length) return;
+  if (page.value.end >= props.content.length) {
+    if (props.hasNextChapter) emit("chapterNext");
+    return;
+  }
   emit("update:charOffset", page.value.end);
   emit("nextPage");
 }
 
 function goPrev() {
-  if (props.charOffset <= 0) return;
+  if (props.charOffset <= 0) {
+    if (props.hasPrevChapter) emit("chapterPrev");
+    return;
+  }
   const ctx = getMetrics();
   if (!ctx) return;
 
   const prevStart = findPrevPageOffset(
     props.content,
     props.charOffset,
+    ctx.metrics,
+    ctx.measure,
+    props.settings,
+  );
+  emit("update:charOffset", prevStart);
+  emit("prevPage");
+}
+
+function goToLastPage() {
+  const ctx = getMetrics();
+  if (!ctx || props.content.length === 0) {
+    emit("update:charOffset", 0);
+    return;
+  }
+
+  const prevStart = findPrevPageOffset(
+    props.content,
+    props.content.length,
     ctx.metrics,
     ctx.measure,
     props.settings,
@@ -239,6 +270,10 @@ function onContextMenu(event: MouseEvent) {
   emit("open-settings");
 }
 
+function onReaderPointerDown() {
+  void platformFocusMainWindow();
+}
+
 function onWheel(event: WheelEvent) {
   if (altHeld.value || !event.deltaY || !consumeWheelTurn()) return;
   event.preventDefault();
@@ -246,7 +281,7 @@ function onWheel(event: WheelEvent) {
   else goPrev();
 }
 
-defineExpose({ goNext, goPrev, relayout });
+defineExpose({ goNext, goPrev, goToLastPage, relayout });
 </script>
 
 <template>
@@ -256,6 +291,7 @@ defineExpose({ goNext, goPrev, relayout });
     :class="{ 'reader-alt-drag': altHeld }"
     :style="readerStyle"
     @contextmenu="onContextMenu"
+    @pointerdown="onReaderPointerDown"
     @wheel="onWheel"
   >
     <span ref="measureRef" class="measure-span" aria-hidden="true"> </span>

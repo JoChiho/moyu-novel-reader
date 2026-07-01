@@ -1,21 +1,29 @@
-import type { Book, BookReadOptions } from "../types";
+import type { Book, BookChapterSlice, BookReadOptions } from "../types";
 import {
+  platformDeleteBookCache,
   platformPickAndReadBook,
-  platformReadBookFile,
+  platformReadBookSlice,
 } from "./platform";
 
 export async function pickAndReadBook(
   options: BookReadOptions = {},
 ): Promise<{
   book: Book;
-  content: string;
+  slice: BookChapterSlice;
 } | null> {
-  return platformPickAndReadBook(options);
+  const result = await platformPickAndReadBook(options);
+  if (!result) return null;
+  return result;
 }
 
-export async function reloadBookContent(
+export async function reloadBookChapterSlice(
   book: Book,
+  globalOffset: number,
   options: BookReadOptions = {},
-): Promise<string> {
-  return platformReadBookFile(book.filePath, options);
+): Promise<BookChapterSlice> {
+  return platformReadBookSlice(book.id, book.filePath, globalOffset, options);
+}
+
+export async function deleteBookCache(bookId: string): Promise<void> {
+  await platformDeleteBookCache(bookId);
 }

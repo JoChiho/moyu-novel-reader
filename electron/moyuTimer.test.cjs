@@ -102,7 +102,7 @@ describe("moyuTimer.cjs", () => {
     assert.notEqual(timer.getSessionStartAt(), null);
   });
 
-  it("does not show in-progress chars in snapshot", () => {
+  it("shows in-progress chars in snapshot", () => {
     let readerOffset = 1_000;
     const mockWin = {
       isDestroyed: () => false,
@@ -121,8 +121,8 @@ describe("moyuTimer.cjs", () => {
     timer.startSession();
     readerOffset = 5_000;
     const snap = timer.snapshot();
-    assert.equal(snap.currentSessionCharsRead, 0);
-    assert.equal(snap.combinedCharsRead, 0);
+    assert.equal(snap.currentSessionCharsRead, 4_000);
+    assert.equal(snap.combinedCharsRead, 4_000);
   });
 
   it("finalizes session chars from offsets on pause", () => {

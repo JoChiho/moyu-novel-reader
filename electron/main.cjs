@@ -41,6 +41,12 @@ const {
   calcWeekMonthCharTotals,
 } = require("./moyuHistory.cjs");
 const { createLuminanceSampler } = require("./luminanceSampler.cjs");
+const {
+  writeBookCache,
+  readSliceAtGlobalOffset,
+  deleteBookCache,
+  loadManifest,
+} = require("./bookCache.cjs");
 
 const store = new Store({ name: "moyu-reader-state" });
 const STORE_KEY = "appState";
@@ -402,21 +408,29 @@ async function pickAndReadBook(encoding = "auto", collapseBlankLines = true) {
     const filePath = result.filePaths[0];
     const content = await readBookFile(filePath, encoding, collapseBlankLines);
     const title = stripBookExtension(filePath);
+    const bookId = crypto.randomUUID();
+    const { chapterEntries } = await writeBookCache(bookId, content, {
+      sourcePath: filePath,
+      encoding,
+      collapseBlankLines,
+    });
+    const slice = await readSliceAtGlobalOffset(bookId, 0);
 
     return {
       ok: true,
       book: {
-        id: crypto.randomUUID(),
+        id: bookId,
         title,
         filePath,
         addedAt: Date.now(),
         charOffset: 0,
         totalChars: content.length,
-          bookmarks: [],
-          chapters: [],
-        },
-        content,
-      };
+        bookmarks: [],
+        chapters: chapterEntries,
+        chapterCacheVersion: 1,
+      },
+      slice,
+    };
   } catch (err) {
     return {
       ok: false,
@@ -550,6 +564,63 @@ app.whenReady().then(() => {
       return {
         ok: false,
         error: err instanceof Error ? err.message : "读取文件失败",
+      };
+    }
+  });
+
+  ipcMain.handle(
+    "read-book-slice",
+    async (_e, bookId, filePath, globalOffset, encoding, collapseBlankLines) => {
+      try {
+        const safeId = String(bookId || "");
+        const safeOffset = Math.max(0, Math.round(Number(globalOffset) || 0));
+        const enc = encoding ?? "auto";
+        const collapse = collapseBlankLines !== false;
+
+        const manifest = await loadManifest(safeId);
+        if (
+          manifest &&
+          (manifest.collapseBlankLines !== collapse || manifest.encoding !== enc)
+        ) {
+          await deleteBookCache(safeId);
+        }
+
+        let slice = await readSliceAtGlobalOffset(safeId, safeOffset);
+        if (!slice) {
+          const content = await readBookFile(filePath, enc, collapse);
+          const { chapterEntries } = await writeBookCache(safeId, content, {
+            sourcePath: filePath,
+            encoding: enc,
+            collapseBlankLines: collapse,
+          });
+          slice = await readSliceAtGlobalOffset(safeId, safeOffset);
+          if (slice) {
+            slice.chapters = chapterEntries;
+          }
+        }
+
+        if (!slice) {
+          return { ok: false, error: "无法读取章节缓存" };
+        }
+
+        return { ok: true, slice };
+      } catch (err) {
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : "读取章节失败",
+        };
+      }
+    },
+  );
+
+  ipcMain.handle("delete-book-cache", async (_e, bookId) => {
+    try {
+      await deleteBookCache(String(bookId || ""));
+      return { ok: true };
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : "删除缓存失败",
       };
     }
   });

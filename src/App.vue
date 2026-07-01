@@ -1,19 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import ReaderToolbar from "./components/ReaderToolbar.vue";
 import ReaderView from "./components/ReaderView.vue";
 import EmptyState from "./components/EmptyState.vue";
 import { useAutoTextContrast } from "./composables/useAutoTextContrast";
 import { bindToggleShortcut } from "./composables/useGlobalShortcut";
 import { useWindowVisibility } from "./composables/useWindowVisibility";
-import { pickAndReadBook, reloadBookContent } from "./services/bookImport";
+import { pickAndReadBook, reloadBookChapterSlice } from "./services/bookImport";
 import { matchesPageTurnKey } from "./utils/pageTurn";
 import { consumeWheelTurn } from "./utils/wheelTurn";
-import { detectChapters } from "./utils/chapters";
 import {
   addBookmark,
   loadAppState,
-  updateBookChapters,
   updateBookMeta,
   updateBookProgress,
   upsertBook,
@@ -30,11 +28,15 @@ import {
   platformSetTransparent,
 } from "./services/platform";
 import { readerBackground } from "./utils/color";
-import type { AppState, Book } from "./types";
+import type { AppState, Book, BookChapterSlice } from "./types";
 
 const appState = ref<AppState | null>(null);
 const activeBook = ref<Book | null>(null);
 const bookContent = ref("");
+const readerLocalOffset = ref(0);
+const chapterGlobalStart = ref(0);
+const chapterHasNext = ref(false);
+const chapterHasPrev = ref(false);
 const toastMessage = ref("");
 const readerRef = ref<InstanceType<typeof ReaderView> | null>(null);
 const chromeBarOpen = ref(false);
@@ -94,34 +96,40 @@ function bookReadOptions() {
   };
 }
 
-async function indexChapters(book: Book, content: string) {
-  if (!appState.value) return book;
-  const chapters = detectChapters(content);
-  const nextBook = { ...book, chapters, fileMissing: false };
-  appState.value = await updateBookChapters(
-    book.id,
-    chapters,
-    appState.value,
-  );
-  if (chapters.length) {
-    showToast(`已识别 ${chapters.length} 个章节`);
+function applyChapterSlice(slice: BookChapterSlice, globalOffset?: number) {
+  bookContent.value = slice.text;
+  chapterGlobalStart.value = slice.chapterGlobalStart;
+  readerLocalOffset.value = slice.localOffset;
+  chapterHasNext.value = slice.hasNextChapter;
+  chapterHasPrev.value = slice.hasPrevChapter;
+
+  const global = globalOffset ?? slice.globalOffset;
+  if (activeBook.value) {
+    activeBook.value = {
+      ...activeBook.value,
+      charOffset: global,
+      totalChars: slice.totalChars,
+      chapters: slice.chapters,
+      chapterCacheVersion: 1,
+      fileMissing: false,
+    };
   }
-  return nextBook;
+}
+
+async function loadChapterAtGlobal(globalOffset: number) {
+  if (!activeBook.value) return;
+  const slice = await reloadBookChapterSlice(
+    activeBook.value,
+    globalOffset,
+    bookReadOptions(),
+  );
+  applyChapterSlice(slice, globalOffset);
 }
 
 async function openBook(book: Book) {
   try {
-    const content = await reloadBookContent(book, bookReadOptions());
-    let nextBook: Book = {
-      ...book,
-      totalChars: content.length,
-      fileMissing: false,
-    };
-    if (!book.chapters.length || book.totalChars !== content.length) {
-      nextBook = await indexChapters(nextBook, content);
-    }
-    activeBook.value = nextBook;
-    bookContent.value = content;
+    activeBook.value = book;
+    await loadChapterAtGlobal(book.charOffset);
   } catch (err) {
     const message = err instanceof Error ? err.message : "打开书籍失败";
     if (appState.value) {
@@ -174,24 +182,19 @@ async function handleImport() {
   try {
     const result = await pickAndReadBook(bookReadOptions());
     if (!result || !appState.value) return;
-    const { book, content } = result;
-    const withMeta = {
+    const { book, slice } = result;
+    const withMeta: Book = {
       ...book,
       bookmarks: [],
-      chapters: detectChapters(content),
-      totalChars: content.length,
     };
-    appState.value = await upsertBook(withMeta, appState.value);
-    if (withMeta.chapters.length) {
-      appState.value = await updateBookChapters(
-        withMeta.id,
-        withMeta.chapters,
-        appState.value,
-      );
-    }
     activeBook.value = withMeta;
-    bookContent.value = content;
-    showToast(`已导入：${book.title}`);
+    applyChapterSlice(slice);
+    appState.value = await upsertBook(activeBook.value, appState.value);
+    const chapterHint =
+      withMeta.chapters.length > 1
+        ? `，${withMeta.chapters.length} 章`
+        : "";
+    showToast(`已导入：${book.title}${chapterHint}`);
   } catch (err) {
     showToast(err instanceof Error ? err.message : "导入失败");
   }
@@ -201,21 +204,53 @@ function getReaderCharOffset(): number | null {
   return activeBook.value?.charOffset ?? null;
 }
 
-async function handleOffsetChange(offset: number) {
+async function handleOffsetChange(localOffset: number) {
   if (!activeBook.value || !appState.value) return;
 
-  activeBook.value = { ...activeBook.value, charOffset: offset };
+  const globalOffset = chapterGlobalStart.value + localOffset;
+  readerLocalOffset.value = localOffset;
+  activeBook.value = { ...activeBook.value, charOffset: globalOffset };
   appState.value = await updateBookProgress(
     activeBook.value.id,
-    offset,
+    globalOffset,
     appState.value,
   );
+}
+
+async function handleChapterNext() {
+  if (!activeBook.value || !appState.value || !chapterHasNext.value) return;
+  const slice = await reloadBookChapterSlice(
+    activeBook.value,
+    activeBook.value.charOffset,
+    bookReadOptions(),
+  );
+  if (slice.nextChapterGlobalStart == null) return;
+  await loadChapterAtGlobal(slice.nextChapterGlobalStart);
+  appState.value = await updateBookProgress(
+    activeBook.value.id,
+    activeBook.value.charOffset,
+    appState.value,
+  );
+}
+
+async function handleChapterPrev() {
+  if (!activeBook.value || !appState.value || !chapterHasPrev.value) return;
+  const slice = await reloadBookChapterSlice(
+    activeBook.value,
+    activeBook.value.charOffset,
+    bookReadOptions(),
+  );
+  if (slice.prevChapterGlobalStart == null) return;
+  await loadChapterAtGlobal(slice.prevChapterGlobalStart);
+  await nextTick();
+  readerRef.value?.goToLastPage();
 }
 
 async function handleAddBookmark() {
   if (!activeBook.value || !appState.value || !isReading.value) return;
   const pct = Math.round(
-    (activeBook.value.charOffset / bookContent.value.length) * 100,
+    (activeBook.value.charOffset / Math.max(activeBook.value.totalChars, 1)) *
+      100,
   );
   const label = `书签 ${pct}%`;
   appState.value = await addBookmark(
@@ -415,12 +450,16 @@ onUnmounted(() => {
       ref="readerRef"
       class="reader-inset"
       :content="bookContent"
-      :char-offset="activeBook.charOffset"
+      :char-offset="readerLocalOffset"
       :settings="appState.settings"
       :auto-text-color="autoTextColor"
+      :has-next-chapter="chapterHasNext"
+      :has-prev-chapter="chapterHasPrev"
       @pointerdown="hideChromeBar"
       @pointerenter="hideChromeBar"
       @update:char-offset="handleOffsetChange"
+      @chapter-next="handleChapterNext"
+      @chapter-prev="handleChapterPrev"
       @open-settings="platformOpenSettingsWindow()"
     />
     <EmptyState v-else @import-book="handleImport" />

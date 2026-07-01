@@ -17,6 +17,21 @@ export interface ChapterEntry {
   charOffset: number;
 }
 
+export interface BookChapterSlice {
+  text: string;
+  localOffset: number;
+  chapterGlobalStart: number;
+  globalOffset: number;
+  chapterIndex: number;
+  chapterTitle: string;
+  totalChars: number;
+  chapters: ChapterEntry[];
+  hasNextChapter: boolean;
+  hasPrevChapter: boolean;
+  nextChapterGlobalStart: number | null;
+  prevChapterGlobalStart: number | null;
+}
+
 export interface Book {
   id: string;
   title: string;
@@ -27,6 +42,8 @@ export interface Book {
   bookmarks: Bookmark[];
   chapters: ChapterEntry[];
   fileMissing?: boolean;
+  /** Built under userData/book-cache/{id} */
+  chapterCacheVersion?: number;
 }
 
 export interface ReaderSettings {
@@ -162,7 +179,7 @@ export const DEFAULT_MOYU_STATS: MoyuStats = {
   trackingEnabled: true,
 };
 
-export const APP_STATE_VERSION = 10;
+export const APP_STATE_VERSION = 11;
 
 export interface DesktopLuminancePayload {
   luminance: number;

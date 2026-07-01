@@ -1,6 +1,7 @@
 import type {
   AppState,
   Book,
+  BookChapterSlice,
   DesktopLuminancePayload,
   MoyuStatsSnapshot,
   TextEncoding,
@@ -10,6 +11,7 @@ export interface ImportBookResult {
   ok: boolean;
   book?: Book;
   content?: string;
+  slice?: BookChapterSlice;
   error?: string;
   canceled?: boolean;
 }
@@ -44,6 +46,14 @@ export interface MoyuBridge {
     encoding?: TextEncoding,
     collapseBlankLines?: boolean,
   ) => Promise<ReadFileResult>;
+  readBookSlice: (
+    bookId: string,
+    filePath: string,
+    globalOffset: number,
+    encoding?: TextEncoding,
+    collapseBlankLines?: boolean,
+  ) => Promise<{ ok: boolean; slice?: BookChapterSlice; error?: string }>;
+  deleteBookCache: (bookId: string) => Promise<{ ok: boolean; error?: string }>;
   setAlwaysOnTop: (value: boolean) => Promise<void>;
   toggleVisibility: () => Promise<void>;
   bindToggleShortcut: (shortcut: string) => Promise<ShortcutBindResult>;

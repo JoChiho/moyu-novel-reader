@@ -131,17 +131,41 @@ function createMoyuTimer(deps) {
     });
   }
 
+  function refreshLiveSessionChars() {
+    if (!sessionStartAt || sessionStartCharOffset == null) return;
+    const end = resolveSessionCharOffset();
+    if (end == null) return;
+    sessionCharsRead = calcSessionCharsFromOffsets(sessionStartCharOffset, end);
+  }
+
+  async function refreshLiveSessionCharsAsync() {
+    if (!sessionStartAt || sessionStartCharOffset == null) return;
+    const end = await readSessionCharOffset();
+    if (end == null) return;
+    sessionCharsRead = calcSessionCharsFromOffsets(sessionStartCharOffset, end);
+  }
+
   function snapshot(now = Date.now()) {
+    if (!usesAsyncCharBoundary) {
+      refreshLiveSessionChars();
+    }
     return getMoyuSnapshot(
       deps.getTotalMs(),
       sessionStartAt,
       getCharsTotal(),
-      0,
+      sessionCharsRead,
       now,
     );
   }
 
   function emitTick() {
+    if (usesAsyncCharBoundary) {
+      void refreshLiveSessionCharsAsync().then(() => {
+        deps.onTick(snapshot());
+      });
+      return;
+    }
+    refreshLiveSessionChars();
     deps.onTick(snapshot());
   }
 

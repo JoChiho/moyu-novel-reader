@@ -7,6 +7,16 @@ contextBridge.exposeInMainWorld("moyu", {
     ipcRenderer.invoke("pick-and-read-book", encoding, collapseBlankLines),
   readBookFile: (filePath, encoding, collapseBlankLines) =>
     ipcRenderer.invoke("read-book-file", filePath, encoding, collapseBlankLines),
+  readBookSlice: (bookId, filePath, globalOffset, encoding, collapseBlankLines) =>
+    ipcRenderer.invoke(
+      "read-book-slice",
+      bookId,
+      filePath,
+      globalOffset,
+      encoding,
+      collapseBlankLines,
+    ),
+  deleteBookCache: (bookId) => ipcRenderer.invoke("delete-book-cache", bookId),
   setAlwaysOnTop: (value) => ipcRenderer.invoke("set-always-on-top", value),
   toggleVisibility: () => ipcRenderer.invoke("toggle-visibility"),
   bindToggleShortcut: (shortcut) =>

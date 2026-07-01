@@ -1,6 +1,7 @@
 import type {
   AppState,
   Book,
+  BookChapterSlice,
   BookReadOptions,
   DesktopLuminancePayload,
   MoyuStatsSnapshot,
@@ -32,7 +33,7 @@ export async function platformPickAndReadBook(
   options: BookReadOptions = {},
 ): Promise<{
   book: Book;
-  content: string;
+  slice: BookChapterSlice;
 } | null> {
   const encoding = options.encoding ?? "auto";
   const collapseBlankLines = options.collapseBlankLines !== false;
@@ -41,10 +42,38 @@ export async function platformPickAndReadBook(
     if (result.canceled) return null;
     throw new Error(result.error ?? "导入失败");
   }
-  if (!result.book || result.content === undefined) {
+  if (!result.book || !result.slice) {
     throw new Error("导入结果无效");
   }
-  return { book: toPlain(result.book), content: result.content };
+  return { book: toPlain(result.book), slice: toPlain(result.slice) };
+}
+
+export async function platformReadBookSlice(
+  bookId: string,
+  filePath: string,
+  globalOffset: number,
+  options: BookReadOptions = {},
+): Promise<BookChapterSlice> {
+  const encoding = options.encoding ?? "auto";
+  const collapseBlankLines = options.collapseBlankLines !== false;
+  const result = await bridge().readBookSlice(
+    bookId,
+    filePath,
+    globalOffset,
+    encoding,
+    collapseBlankLines,
+  );
+  if (!result.ok || !result.slice) {
+    throw new Error(result.error ?? "读取章节失败");
+  }
+  return toPlain(result.slice);
+}
+
+export async function platformDeleteBookCache(bookId: string): Promise<void> {
+  const result = await bridge().deleteBookCache(bookId);
+  if (!result.ok) {
+    throw new Error(result.error ?? "删除书籍缓存失败");
+  }
 }
 
 export async function platformReadBookFile(

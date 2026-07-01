@@ -96,6 +96,8 @@ export async function removeBook(
   bookId: string,
   _state: AppState,
 ): Promise<AppState> {
+  const { deleteBookCache } = await import("./bookImport");
+  await deleteBookCache(bookId);
   const base = await withLatestState();
   const next = {
     ...base,
