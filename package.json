@@ -61,7 +61,7 @@
       "target": [
         "portable"
       ],
-      "icon": "electron/tray-icon.png",
+      "icon": "app-icon.png",
       "executableName": "moyu-novel-reader",
       "artifactName": "moyu-novel-reader-${version}-portable.${ext}",
       "signAndEditExecutable": false

@@ -4,7 +4,7 @@
 
 **技术栈：Electron 35 + Vue 3 + TypeScript**（纯本地，无需 Visual Studio）
 
-**当前版本：v0.3.0**
+**当前版本：v0.6.0**
 
 ## 快速开始
 
@@ -19,7 +19,7 @@ npm run electron:dev
 npm run dist
 ```
 
-输出：`release/moyu-novel-reader-0.3.0-portable.exe`（便携单文件，双击运行）
+输出：`release/moyu-novel-reader-0.6.0-portable.exe`（便携单文件，双击运行）
 
 调试时可先运行解压版：`release/win-unpacked/moyu-novel-reader.exe`
 
@@ -28,11 +28,13 @@ npm run dist
 ## 主要功能
 
 - 多格式导入：txt / md / html / rtf / fb2 / epub / docx / doc
+- **章节文件缓存**：导入时按章拆分，章内翻页更快（v0.6.0）
 - 窗口随意拖拽、缩放；文字随窗口实时重排，不截断半行
-- 透明摸鱼模式：窗口与文字可半透明，透视桌面
-- 主窗口专注阅读；设置 / 书架 / 导航为独立子窗口
+- 透明摸鱼模式：窗口与文字可半透明，透视桌面；自适应文字对比度
+- 主窗口专注阅读；设置 / 书架 / 导航 / 摸鱼计算器为独立子窗口
 - 章节自动识别、书签（Ctrl+B）、阅读进度记忆
 - 翻页可保留上一页末尾 n 行；滚轮 / 方向键 / 自定义键翻页
+- 摸鱼计算器：可见时长、阅读字数（实时）、薪资换算、历史记录
 - 系统托盘；全局快捷键隐藏/显示（可录制）
 - 内置说明书（设置面板 →「说明书」）
 
@@ -51,15 +53,16 @@ npm run dist
 ## 目录结构
 
 ```
-electron/           主进程（窗口、IPC、文件读取、托盘、Windows DWM）
+electron/           主进程（窗口、IPC、文件读取、章节缓存、托盘、Windows DWM）
 src/                Vue 3 前端（阅读器、分页、设置、子窗口）
 scripts/            测试素材生成 + 阶段验证脚本
+release/            便携包输出（npm run dist，不提交 git）
 ```
 
 ## 开发与测试
 
 ```bash
-npm run test          # 62 项自动化测试
+npm run test          # 93 项自动化测试
 npm run build         # 前端构建
 npm run dist          # 测试 + 构建 + 便携 exe
 ```
