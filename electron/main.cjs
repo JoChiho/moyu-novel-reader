@@ -1,6 +1,7 @@
 const {
   app,
   BrowserWindow,
+  desktopCapturer,
   dialog,
   globalShortcut,
   ipcMain,
@@ -37,7 +38,9 @@ const { createMoyuTimer } = require("./moyuTimer.cjs");
 const {
   appendSession,
   calcWeekMonthTotals,
+  calcWeekMonthCharTotals,
 } = require("./moyuHistory.cjs");
+const { createLuminanceSampler } = require("./luminanceSampler.cjs");
 
 const store = new Store({ name: "moyu-reader-state" });
 const STORE_KEY = "appState";
@@ -45,6 +48,8 @@ const STORE_KEY = "appState";
 let mainWindow = null;
 /** @type {ReturnType<typeof createMoyuTimer> | null} */
 let moyuTimer = null;
+/** @type {ReturnType<typeof createLuminanceSampler> | null} */
+let luminanceSampler = null;
 let tray = null;
 let toggleShortcutElectron = "Control+`";
 /** @type {import("electron").Rectangle | null} */
@@ -97,6 +102,18 @@ function setMoyuTotalMs(ms) {
   );
 }
 
+function getMoyuTotalCharsRead() {
+  const state = store.get(STORE_KEY) ?? {};
+  return state.moyuStats?.totalCharsRead ?? 0;
+}
+
+function setMoyuTotalCharsRead(chars) {
+  store.set(
+    `${STORE_KEY}.moyuStats.totalCharsRead`,
+    Math.max(0, Math.round(Number(chars) || 0)),
+  );
+}
+
 function getMoyuSessions() {
   const sessions = store.get(`${STORE_KEY}.moyuStats.sessions`);
   return Array.isArray(sessions) ? sessions : [];
@@ -108,6 +125,7 @@ function appendMoyuSession(session) {
     startedAt: session.startedAt,
     endedAt: session.endedAt,
     durationMs: session.durationMs,
+    charsRead: session.charsRead ?? 0,
   });
   store.set(`${STORE_KEY}.moyuStats.sessions`, next);
 }
@@ -134,10 +152,17 @@ function buildMoyuStatsPayload(timerSnap) {
     sessionStartAt,
     timerSnap.currentSessionMs,
   );
+  const charTotals = calcWeekMonthCharTotals(
+    sessions,
+    now,
+    sessionStartAt,
+    timerSnap.currentSessionCharsRead ?? 0,
+  );
 
   return {
     ...timerSnap,
     ...periodTotals,
+    ...charTotals,
     sessions: sessions.slice(0, 50),
     trackingEnabled: getMoyuTrackingEnabled(),
   };
@@ -152,10 +177,28 @@ function broadcastMoyuStatsTick(snapshot) {
   }
 }
 
+async function fetchReaderCharOffset() {
+  if (!mainWindow || mainWindow.isDestroyed()) return null;
+  try {
+    const value = await mainWindow.webContents.executeJavaScript(
+      "typeof window.__moyuGetReaderCharOffset==='function'?window.__moyuGetReaderCharOffset():null",
+      true,
+    );
+    if (value == null || !Number.isFinite(Number(value))) return null;
+    return Math.max(0, Math.round(Number(value)));
+  } catch {
+    return null;
+  }
+}
+
 function initMoyuTimer(win) {
+  setMoyuTrackingEnabled(true);
   moyuTimer = createMoyuTimer({
     getTotalMs: getMoyuTotalMs,
     setTotalMs: setMoyuTotalMs,
+    getTotalCharsRead: getMoyuTotalCharsRead,
+    setTotalCharsRead: setMoyuTotalCharsRead,
+    fetchSessionCharOffset: fetchReaderCharOffset,
     getWindow: () => mainWindow,
     onTick: broadcastMoyuStatsTick,
     onSessionEnd: appendMoyuSession,
@@ -163,6 +206,7 @@ function initMoyuTimer(win) {
     setTrackingEnabled: setMoyuTrackingEnabled,
   });
   moyuTimer.attachWindow(win);
+  moyuTimer.setTrackingEnabled(true);
 }
 
 /** Height of the top chrome row (must match CSS .reader-chrome). */
@@ -292,6 +336,30 @@ function createWindow() {
   mainWindow.on("close", () => saveWindowBounds());
 
   initMoyuTimer(mainWindow);
+  initLuminanceSampler(mainWindow);
+}
+
+function getReaderSettings() {
+  return store.get(STORE_KEY)?.settings ?? {};
+}
+
+function broadcastDesktopLuminance(payload) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("desktop-luminance-updated", payload);
+  }
+}
+
+function initLuminanceSampler(win) {
+  luminanceSampler = createLuminanceSampler({
+    desktopCapturer,
+    screen,
+    getWindow: () => mainWindow,
+    getSettings: getReaderSettings,
+    onUpdate: broadcastDesktopLuminance,
+    readerChromeHeight: READER_CHROME_HEIGHT_PX,
+  });
+  luminanceSampler.attachWindow(win);
+  luminanceSampler.refreshFromSettings();
 }
 
 async function pickAndReadBook(encoding = "auto", collapseBlankLines = true) {
@@ -365,6 +433,7 @@ function getDevUrl() {
 }
 
 function broadcastDisplayMetricsChanged() {
+  luminanceSampler?.runSample();
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
       win.webContents.send("display-metrics-changed");
@@ -379,9 +448,20 @@ app.whenReady().then(() => {
   screen.on("display-metrics-changed", broadcastDisplayMetricsChanged);
 
   ipcMain.handle("load-app-state", () => store.get(STORE_KEY) ?? null);
-  ipcMain.handle("save-app-state", (event, state) => {
+  ipcMain.handle("save-app-state", (event, incoming) => {
     try {
-      store.set(STORE_KEY, JSON.parse(JSON.stringify(state)));
+      const current = store.get(STORE_KEY) ?? {};
+      const next = JSON.parse(JSON.stringify(incoming));
+      next.settings = {
+        ...(current.settings ?? {}),
+        ...(incoming.settings ?? {}),
+      };
+      next.moyuStats = {
+        ...(incoming.moyuStats ?? {}),
+        ...(current.moyuStats ?? {}),
+      };
+      store.set(STORE_KEY, next);
+      luminanceSampler?.refreshFromSettings();
       broadcastAppStateUpdated(event.sender);
       return { ok: true };
     } catch (err) {
@@ -531,10 +611,14 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("get-moyu-stats", () => {
+    const totalChars = getMoyuTotalCharsRead();
     const timerSnap = moyuTimer?.snapshot() ?? {
       totalVisibleMs: getMoyuTotalMs(),
       currentSessionMs: 0,
       combinedVisibleMs: getMoyuTotalMs(),
+      totalCharsRead: totalChars,
+      currentSessionCharsRead: 0,
+      combinedCharsRead: totalChars,
       isRunning: false,
     };
     return buildMoyuStatsPayload(timerSnap);

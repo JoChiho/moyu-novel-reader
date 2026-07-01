@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import ReaderToolbar from "./components/ReaderToolbar.vue";
 import ReaderView from "./components/ReaderView.vue";
 import EmptyState from "./components/EmptyState.vue";
+import { useAutoTextContrast } from "./composables/useAutoTextContrast";
 import { bindToggleShortcut } from "./composables/useGlobalShortcut";
 import { useWindowVisibility } from "./composables/useWindowVisibility";
 import { pickAndReadBook, reloadBookContent } from "./services/bookImport";
@@ -38,6 +39,9 @@ const toastMessage = ref("");
 const readerRef = ref<InstanceType<typeof ReaderView> | null>(null);
 const chromeBarOpen = ref(false);
 
+/** Must match CSS `.reader-chrome` height */
+const READER_CHROME_HEIGHT_PX = 40;
+
 let unsubscribeState: (() => void) | null = null;
 let unsubscribeDpi: (() => void) | null = null;
 let unsubscribeBlur: (() => void) | null = null;
@@ -46,6 +50,10 @@ let unsubscribeWheel: (() => void) | null = null;
 const isReading = computed(
   () => !!(activeBook.value && bookContent.value.length),
 );
+
+const readerSettings = computed(() => appState.value?.settings);
+
+const { autoTextColor } = useAutoTextContrast(readerSettings);
 
 const appStyle = computed(() => {
   if (!appState.value) return {};
@@ -189,8 +197,13 @@ async function handleImport() {
   }
 }
 
+function getReaderCharOffset(): number | null {
+  return activeBook.value?.charOffset ?? null;
+}
+
 async function handleOffsetChange(offset: number) {
   if (!activeBook.value || !appState.value) return;
+
   activeBook.value = { ...activeBook.value, charOffset: offset };
   appState.value = await updateBookProgress(
     activeBook.value.id,
@@ -292,6 +305,13 @@ function hideChromeBar() {
   chromeBarOpen.value = false;
 }
 
+function onAppPointerMove(event: PointerEvent) {
+  if (!isReading.value || !chromeBarOpen.value) return;
+  if (event.clientY > READER_CHROME_HEIGHT_PX) {
+    hideChromeBar();
+  }
+}
+
 function handleWheelDelta(deltaY: number) {
   if (!isReading.value || !readerRef.value || !deltaY || !consumeWheelTurn()) return;
   if (deltaY > 0) readerRef.value.goNext();
@@ -308,6 +328,11 @@ function onVisibilityChange() {
 }
 
 onMounted(() => {
+  (
+    window as Window & {
+      __moyuGetReaderCharOffset?: () => number | null;
+    }
+  ).__moyuGetReaderCharOffset = getReaderCharOffset;
   document.title = "";
   void bootstrap();
   window.addEventListener("keydown", onKeydown);
@@ -326,6 +351,11 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  delete (
+    window as Window & {
+      __moyuGetReaderCharOffset?: () => number | null;
+    }
+  ).__moyuGetReaderCharOffset;
   window.removeEventListener("keydown", onKeydown);
   window.removeEventListener("blur", onWindowBlur);
   unsubscribeWheel?.();
@@ -345,6 +375,7 @@ onUnmounted(() => {
       'app-reading': isReading,
     }"
     :style="appStyle"
+    @pointermove="onAppPointerMove"
   >
     <div
       v-if="isReading"
@@ -386,6 +417,9 @@ onUnmounted(() => {
       :content="bookContent"
       :char-offset="activeBook.charOffset"
       :settings="appState.settings"
+      :auto-text-color="autoTextColor"
+      @pointerdown="hideChromeBar"
+      @pointerenter="hideChromeBar"
       @update:char-offset="handleOffsetChange"
       @open-settings="platformOpenSettingsWindow()"
     />

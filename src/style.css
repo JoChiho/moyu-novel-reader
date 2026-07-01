@@ -620,6 +620,47 @@ button {
   cursor: pointer;
 }
 
+.text-color-block {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.text-color-label {
+  font-size: 13px;
+}
+
+.text-color-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.text-color-preset-btn {
+  min-width: 44px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #f0f0f0;
+}
+
+.text-color-preset-btn.active {
+  outline: 2px solid #3d8c72;
+  outline-offset: 1px;
+}
+
+.text-color-picker {
+  width: 100%;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
 .shelf-toolbar {
   display: flex;
   gap: 8px;
@@ -696,6 +737,10 @@ button {
   font-family: ui-monospace, Consolas, monospace;
 }
 
+.moyu-stat-chars {
+  color: #2e6b5a;
+}
+
 .moyu-tracking-row {
   display: flex;
   align-items: center;
@@ -767,7 +812,7 @@ button {
 
 .moyu-history-list li {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   gap: 8px;
   align-items: center;
   padding: 8px 10px;
@@ -787,6 +832,12 @@ button {
 .moyu-history-duration {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.moyu-history-chars {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #2e6b5a;
 }
 
 .moyu-history-money {

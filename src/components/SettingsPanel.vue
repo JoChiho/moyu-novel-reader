@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import type { ReaderSettings } from "../types";
 import { EYE_CARE_THEMES } from "../utils/themes";
+import { TEXT_COLOR_PRESETS } from "../utils/textColorPresets";
 import ShortcutRecorder from "./ShortcutRecorder.vue";
 import PageKeyRecorder from "./PageKeyRecorder.vue";
 import UserManualDialog from "./UserManualDialog.vue";
@@ -39,6 +40,10 @@ function onProgressInput(event: Event) {
   const pct = Number((event.target as HTMLInputElement).value);
   const offset = Math.round((pct / 100) * props.progressTotal);
   emit("jumpProgress", offset);
+}
+
+function applyTextColorPreset(color: string) {
+  emit("update:settings", { textColor: color });
 }
 </script>
 
@@ -87,10 +92,25 @@ function onProgressInput(event: Event) {
             "
           />
         </label>
-        <label>
-          文字颜色
+        <div class="text-color-block">
+          <span class="text-color-label">文字颜色</span>
+          <div class="text-color-presets">
+            <button
+              v-for="preset in TEXT_COLOR_PRESETS"
+              :key="preset.id"
+              type="button"
+              class="text-color-preset-btn"
+              :class="{ active: settings.textColor.toLowerCase() === preset.color }"
+              :style="{ color: preset.color, backgroundColor: '#f0f0f0' }"
+              :title="preset.label"
+              @click="applyTextColorPreset(preset.color)"
+            >
+              {{ preset.label }}
+            </button>
+          </div>
           <input
             type="color"
+            class="text-color-picker"
             :value="settings.textColor"
             @input="
               emit('update:settings', {
@@ -98,7 +118,27 @@ function onProgressInput(event: Event) {
               })
             "
           />
+        </div>
+        <label class="checkbox">
+          <input
+            type="checkbox"
+            :checked="settings.autoTextContrast"
+            :disabled="!settings.transparentBackground"
+            @change="
+              emit('update:settings', {
+                autoTextContrast: ($event.target as HTMLInputElement).checked,
+              })
+            "
+          />
+          自适应文字对比度
         </label>
+        <p class="hint">
+          {{
+            settings.transparentBackground
+              ? "透明窗口下根据桌面明暗自动切换黑/白文字，手动颜色作关闭时的备用"
+              : "需先开启「透明窗口」才能使用自适应对比度"
+          }}
+        </p>
         <label>
           背景颜色
           <input

@@ -7,6 +7,7 @@ import {
   platformSetMoyuTracking,
 } from "../services/platform";
 import { formatSessionRange } from "../utils/moyuHistory";
+import { formatCharCount } from "../utils/moyuReadVolume";
 import {
   calcHourlyRate,
   calcSalaryAmount,
@@ -28,9 +29,14 @@ const emptySnapshot = (): MoyuStatsSnapshot => ({
   totalVisibleMs: 0,
   currentSessionMs: 0,
   combinedVisibleMs: 0,
+  totalCharsRead: 0,
+  currentSessionCharsRead: 0,
+  combinedCharsRead: 0,
   isRunning: false,
   weekVisibleMs: 0,
   monthVisibleMs: 0,
+  weekCharsRead: 0,
+  monthCharsRead: 0,
   sessions: [],
   trackingEnabled: true,
 });
@@ -99,7 +105,7 @@ onUnmounted(() => {
   <section class="section moyu-stats-section">
     <h3>摸鱼计算器</h3>
     <p class="hint">
-      主窗口可见时累计时长；隐藏窗口（快捷键 / 托盘）后暂停并写入历史。数据仅存本机。
+      主窗口可见且计时开启时累计时长；阅读字数在每次计时结束（隐藏窗口 / 暂停）时一次性结算，计时过程中不会逐页累加。数据仅存本机。
     </p>
 
     <div class="moyu-stats-grid moyu-stats-grid-4">
@@ -110,6 +116,9 @@ onUnmounted(() => {
         }}</span>
         <span v-if="showSalary" class="moyu-stat-sub">
           {{ formatMoneyYuan(sessionMoney) }}
+        </span>
+        <span class="moyu-stat-sub moyu-stat-chars">
+          {{ formatCharCount(snapshot.currentSessionCharsRead) }}
         </span>
       </div>
       <div class="moyu-stat-card">
@@ -123,6 +132,9 @@ onUnmounted(() => {
         <span v-if="showSalary" class="moyu-stat-sub">
           合计 {{ formatMoneyYuan(totalMoney) }}
         </span>
+        <span class="moyu-stat-sub moyu-stat-chars">
+          {{ formatCharCount(snapshot.combinedCharsRead) }}
+        </span>
       </div>
       <div class="moyu-stat-card">
         <span class="moyu-stat-label">本周摸鱼</span>
@@ -135,6 +147,9 @@ onUnmounted(() => {
         <span v-if="showSalary" class="moyu-stat-sub">
           {{ formatMoneyYuan(weekMoney) }}
         </span>
+        <span class="moyu-stat-sub moyu-stat-chars">
+          {{ formatCharCount(snapshot.weekCharsRead) }}
+        </span>
       </div>
       <div class="moyu-stat-card">
         <span class="moyu-stat-label">本月摸鱼</span>
@@ -146,6 +161,9 @@ onUnmounted(() => {
         }}</span>
         <span v-if="showSalary" class="moyu-stat-sub">
           {{ formatMoneyYuan(monthMoney) }}
+        </span>
+        <span class="moyu-stat-sub moyu-stat-chars">
+          {{ formatCharCount(snapshot.monthCharsRead) }}
         </span>
       </div>
     </div>
@@ -257,6 +275,9 @@ onUnmounted(() => {
           }}</span>
           <span class="moyu-history-duration">{{
             formatLongDuration(session.durationMs)
+          }}</span>
+          <span class="moyu-history-chars">{{
+            formatCharCount(session.charsRead ?? 0)
           }}</span>
           <span v-if="showSalary" class="moyu-history-money">{{
             formatMoneyYuan(calcSalaryAmount(session.durationMs, hourlyRate))

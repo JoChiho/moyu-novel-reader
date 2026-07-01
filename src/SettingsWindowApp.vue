@@ -18,9 +18,20 @@ import type { AppState } from "./types";
 const appState = ref<AppState | null>(null);
 const shortcutError = ref("");
 let unsubscribe: (() => void) | null = null;
+let settingsSaveChain: Promise<void> = Promise.resolve();
 
 async function refreshState() {
   appState.value = await loadAppState();
+}
+
+function isEditingSettings() {
+  const active = document.activeElement;
+  return !!active?.closest("input, textarea, select");
+}
+
+function onExternalStateUpdated() {
+  if (isEditingSettings()) return;
+  void refreshState();
 }
 
 async function applyWindowSettings() {
@@ -46,7 +57,8 @@ async function bootstrap() {
 async function handleSettingsPatch(patch: Partial<AppState["settings"]>) {
   if (!appState.value) return;
 
-  const merged = { ...appState.value.settings, ...patch };
+  const prev = appState.value;
+  const merged = { ...prev.settings, ...patch };
   const pageIssues = getPageKeyConflicts(merged);
   if (pageIssues.length) {
     shortcutError.value = pageIssues.join("；");
@@ -64,21 +76,35 @@ async function handleSettingsPatch(patch: Partial<AppState["settings"]>) {
   }
 
   shortcutError.value = "";
-  appState.value = await updateSettings(patch, appState.value);
-  if (
-    patch.alwaysOnTop !== undefined ||
-    patch.transparentBackground !== undefined ||
-    patch.backgroundColor !== undefined ||
-    patch.backgroundOpacity !== undefined
-  ) {
-    await applyWindowSettings();
-  }
-  if (patch.toggleVisibilityShortcut !== undefined) {
-    const result = await bindToggleShortcut(patch.toggleVisibilityShortcut);
-    shortcutError.value = result.success
-      ? ""
-      : (result.error ?? "快捷键注册失败");
-  }
+  appState.value = {
+    ...prev,
+    settings: merged,
+  };
+
+  const runSave = async () => {
+    try {
+      appState.value = await updateSettings(patch, prev);
+      if (
+        patch.alwaysOnTop !== undefined ||
+        patch.transparentBackground !== undefined ||
+        patch.backgroundColor !== undefined ||
+        patch.backgroundOpacity !== undefined
+      ) {
+        await applyWindowSettings();
+      }
+      if (patch.toggleVisibilityShortcut !== undefined) {
+        const result = await bindToggleShortcut(patch.toggleVisibilityShortcut);
+        shortcutError.value = result.success
+          ? ""
+          : (result.error ?? "快捷键注册失败");
+      }
+    } catch {
+      appState.value = prev;
+    }
+  };
+
+  settingsSaveChain = settingsSaveChain.then(runSave, runSave);
+  await settingsSaveChain;
 }
 
 async function handleJumpProgress(offset: number) {
@@ -97,9 +123,7 @@ const activeBook = () =>
 
 onMounted(() => {
   void bootstrap();
-  unsubscribe = window.moyu?.onAppStateUpdated(() => {
-    void refreshState();
-  }) ?? null;
+  unsubscribe = window.moyu?.onAppStateUpdated(onExternalStateUpdated) ?? null;
 });
 
 onUnmounted(() => {

@@ -1,4 +1,10 @@
-import type { AppState, Book, BookReadOptions, MoyuStatsSnapshot } from "../types";
+import type {
+  AppState,
+  Book,
+  BookReadOptions,
+  DesktopLuminancePayload,
+  MoyuStatsSnapshot,
+} from "../types";
 import type { ShortcutBindResult } from "../types/electron";
 import { toPlain } from "../utils/serialize";
 
@@ -162,4 +168,10 @@ export function platformOnMoyuStatsTick(
   callback: (payload: MoyuStatsSnapshot) => void,
 ): () => void {
   return bridge().onMoyuStatsTick(callback);
+}
+
+export function platformOnDesktopLuminanceUpdated(
+  callback: (payload: DesktopLuminancePayload) => void,
+): () => void {
+  return bridge().onDesktopLuminanceUpdated(callback);
 }

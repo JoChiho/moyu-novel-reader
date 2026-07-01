@@ -33,9 +33,7 @@ function normalizeBook(book: Book): Book {
   };
 }
 
-export async function loadAppState(): Promise<AppState> {
-  const saved = await platformLoadAppState();
-  if (!saved) return defaultState();
+function normalizeLoaded(saved: AppState): AppState {
   return {
     ...defaultState(),
     ...saved,
@@ -45,19 +43,32 @@ export async function loadAppState(): Promise<AppState> {
       ...DEFAULT_MOYU_STATS,
       ...saved.moyuStats,
       sessions: saved.moyuStats?.sessions ?? [],
+      totalCharsRead: saved.moyuStats?.totalCharsRead ?? 0,
       trackingEnabled: saved.moyuStats?.trackingEnabled !== false,
     },
   };
+}
+
+export async function loadAppState(): Promise<AppState> {
+  const saved = await platformLoadAppState();
+  if (!saved) return defaultState();
+  return normalizeLoaded(saved);
+}
+
+/** Always merge patches against the latest persisted snapshot. */
+async function withLatestState(): Promise<AppState> {
+  return loadAppState();
 }
 
 export async function saveAppState(state: AppState): Promise<void> {
   await platformSaveAppState(toPlain(state));
 }
 
-export async function upsertBook(book: Book, state: AppState): Promise<AppState> {
+export async function upsertBook(book: Book, _state: AppState): Promise<AppState> {
+  const base = await withLatestState();
   const next = {
-    ...state,
-    books: [...state.books.filter((b) => b.id !== book.id), book],
+    ...base,
+    books: [...base.books.filter((b) => b.id !== book.id), normalizeBook(book)],
     lastBookId: book.id,
   };
   await saveAppState(next);
@@ -67,11 +78,12 @@ export async function upsertBook(book: Book, state: AppState): Promise<AppState>
 export async function updateBookProgress(
   bookId: string,
   charOffset: number,
-  state: AppState,
+  _state: AppState,
 ): Promise<AppState> {
+  const base = await withLatestState();
   const next = {
-    ...state,
-    books: state.books.map((b) =>
+    ...base,
+    books: base.books.map((b) =>
       b.id === bookId ? { ...b, charOffset } : b,
     ),
     lastBookId: bookId,
@@ -82,12 +94,13 @@ export async function updateBookProgress(
 
 export async function removeBook(
   bookId: string,
-  state: AppState,
+  _state: AppState,
 ): Promise<AppState> {
+  const base = await withLatestState();
   const next = {
-    ...state,
-    books: state.books.filter((b) => b.id !== bookId),
-    lastBookId: state.lastBookId === bookId ? null : state.lastBookId,
+    ...base,
+    books: base.books.filter((b) => b.id !== bookId),
+    lastBookId: base.lastBookId === bookId ? null : base.lastBookId,
   };
   await saveAppState(next);
   return next;
@@ -95,11 +108,12 @@ export async function removeBook(
 
 export async function updateSettings(
   settings: Partial<ReaderSettings>,
-  state: AppState,
+  _state: AppState,
 ): Promise<AppState> {
+  const base = await withLatestState();
   const next = {
-    ...state,
-    settings: { ...state.settings, ...settings },
+    ...base,
+    settings: { ...base.settings, ...settings },
   };
   await saveAppState(next);
   return next;
@@ -108,11 +122,12 @@ export async function updateSettings(
 export async function updateBookMeta(
   bookId: string,
   patch: Partial<Pick<Book, "chapters" | "bookmarks" | "fileMissing" | "totalChars">>,
-  state: AppState,
+  _state: AppState,
 ): Promise<AppState> {
+  const base = await withLatestState();
   const next = {
-    ...state,
-    books: state.books.map((b) =>
+    ...base,
+    books: base.books.map((b) =>
       b.id === bookId ? { ...b, ...patch } : b,
     ),
   };
@@ -124,8 +139,9 @@ export async function addBookmark(
   bookId: string,
   charOffset: number,
   label: string,
-  state: AppState,
+  _state: AppState,
 ): Promise<AppState> {
+  const base = await withLatestState();
   const bookmark: Bookmark = {
     id: crypto.randomUUID(),
     charOffset,
@@ -133,8 +149,8 @@ export async function addBookmark(
     createdAt: Date.now(),
   };
   const next = {
-    ...state,
-    books: state.books.map((b) =>
+    ...base,
+    books: base.books.map((b) =>
       b.id === bookId
         ? { ...b, bookmarks: [...b.bookmarks, bookmark] }
         : b,
@@ -147,11 +163,12 @@ export async function addBookmark(
 export async function removeBookmark(
   bookId: string,
   bookmarkId: string,
-  state: AppState,
+  _state: AppState,
 ): Promise<AppState> {
+  const base = await withLatestState();
   const next = {
-    ...state,
-    books: state.books.map((b) =>
+    ...base,
+    books: base.books.map((b) =>
       b.id === bookId
         ? { ...b, bookmarks: b.bookmarks.filter((m) => m.id !== bookmarkId) }
         : b,

@@ -45,3 +45,12 @@ export function readerTextColor(
   }
   return hex;
 }
+
+export function resolveEffectiveTextColor(
+  manualColor: string,
+  autoColor: string | null | undefined,
+  autoEnabled: boolean,
+): string {
+  if (autoEnabled && autoColor) return autoColor;
+  return manualColor;
+}

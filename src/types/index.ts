@@ -33,6 +33,8 @@ export interface ReaderSettings {
   fontSize: number;
   fontFamily: string;
   textColor: string;
+  autoTextContrast: boolean;
+  autoTextContrastThreshold: number;
   backgroundColor: string;
   lineHeight: number;
   padding: number;
@@ -68,10 +70,12 @@ export interface MoyuSession {
   startedAt: number;
   endedAt: number;
   durationMs: number;
+  charsRead?: number;
 }
 
 export interface MoyuStats {
   totalVisibleMs: number;
+  totalCharsRead?: number;
   sessions?: MoyuSession[];
   /** false after reset until user clicks 开始计时 */
   trackingEnabled?: boolean;
@@ -81,9 +85,14 @@ export interface MoyuStatsSnapshot {
   totalVisibleMs: number;
   currentSessionMs: number;
   combinedVisibleMs: number;
+  totalCharsRead: number;
+  currentSessionCharsRead: number;
+  combinedCharsRead: number;
   isRunning: boolean;
   weekVisibleMs: number;
   monthVisibleMs: number;
+  weekCharsRead: number;
+  monthCharsRead: number;
   sessions: MoyuSession[];
   trackingEnabled: boolean;
 }
@@ -114,6 +123,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   fontFamily:
     '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif',
   textColor: "#3d3d3d",
+  autoTextContrast: false,
+  autoTextContrastThreshold: 128,
   backgroundColor: "#c7edcc",
   lineHeight: 1.2,
   padding: 8,
@@ -146,8 +157,15 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
 
 export const DEFAULT_MOYU_STATS: MoyuStats = {
   totalVisibleMs: 0,
+  totalCharsRead: 0,
   sessions: [],
   trackingEnabled: true,
 };
 
-export const APP_STATE_VERSION = 8;
+export const APP_STATE_VERSION = 10;
+
+export interface DesktopLuminancePayload {
+  luminance: number;
+  textColor: string;
+  suggestLightText: boolean;
+}

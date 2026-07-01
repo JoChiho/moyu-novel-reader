@@ -91,6 +91,68 @@ function calcWeekMonthTotals(sessions, now, sessionStartAt, currentSessionMs) {
 }
 
 /**
+ * @param {Array<{ endedAt: number, charsRead?: number }>} sessions
+ * @param {number} periodStart
+ * @param {number} now
+ * @param {number | null} sessionStartAt
+ * @param {number} currentSessionCharsRead
+ */
+function sumPeriodChars(
+  sessions,
+  periodStart,
+  now,
+  sessionStartAt,
+  currentSessionCharsRead,
+) {
+  let total = 0;
+
+  for (const session of sessions) {
+    if (session.endedAt >= periodStart && session.endedAt <= now) {
+      total += Math.max(0, Math.round(session.charsRead) || 0);
+    }
+  }
+
+  if (sessionStartAt && currentSessionCharsRead > 0) {
+    total += Math.max(0, Math.round(currentSessionCharsRead) || 0);
+  }
+
+  return total;
+}
+
+/**
+ * @param {Array<{ endedAt: number, charsRead?: number }>} sessions
+ * @param {number} now
+ * @param {number | null} sessionStartAt
+ * @param {number} currentSessionCharsRead
+ */
+function calcWeekMonthCharTotals(
+  sessions,
+  now,
+  sessionStartAt,
+  currentSessionCharsRead,
+) {
+  const weekStart = startOfWeek(now);
+  const monthStart = startOfMonth(now);
+
+  return {
+    weekCharsRead: sumPeriodChars(
+      sessions,
+      weekStart,
+      now,
+      sessionStartAt,
+      currentSessionCharsRead,
+    ),
+    monthCharsRead: sumPeriodChars(
+      sessions,
+      monthStart,
+      now,
+      sessionStartAt,
+      currentSessionCharsRead,
+    ),
+  };
+}
+
+/**
  * @param {unknown} sessions
  * @param {{
  *   id: string,
@@ -109,6 +171,8 @@ module.exports = {
   startOfMonth,
   startOfWeek,
   sumPeriodMs,
+  sumPeriodChars,
   calcWeekMonthTotals,
+  calcWeekMonthCharTotals,
   appendSession,
 };

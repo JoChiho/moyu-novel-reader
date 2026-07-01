@@ -7,7 +7,7 @@ import type { AppState, ReaderSettings } from "./types";
 const appState = ref<AppState | null>(null);
 const saveError = ref("");
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let saveTimer: number | null = null;
 let pendingPatch: Partial<ReaderSettings> = {};
 let saving = false;
 

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { readerBackground, readerTextColor, toRgba } from "./color";
+import {
+  readerBackground,
+  readerTextColor,
+  resolveEffectiveTextColor,
+  toRgba,
+} from "./color";
 
 describe("color", () => {
   it("converts hex to rgba", () => {
@@ -28,5 +33,14 @@ describe("color", () => {
 
   it("allows fully transparent text", () => {
     expect(readerTextColor("#3d3d3d", true, 0)).toBe("rgba(61, 61, 61, 0)");
+  });
+
+  it("uses auto text color only when enabled", () => {
+    expect(resolveEffectiveTextColor("#3d3d3d", "#ffffff", true)).toBe(
+      "#ffffff",
+    );
+    expect(resolveEffectiveTextColor("#3d3d3d", "#ffffff", false)).toBe(
+      "#3d3d3d",
+    );
   });
 });

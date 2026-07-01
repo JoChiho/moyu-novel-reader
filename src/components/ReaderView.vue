@@ -15,13 +15,18 @@ import {
 } from "../services/pageCache";
 import { platformSetFrameRestoreSuspended } from "../services/platform";
 import { consumeWheelTurn } from "../utils/wheelTurn";
-import { readerBackground, readerTextColor } from "../utils/color";
+import {
+  readerBackground,
+  readerTextColor,
+  resolveEffectiveTextColor,
+} from "../utils/color";
 import type { PageSlice, ReaderSettings } from "../types";
 
 const props = defineProps<{
   content: string;
   charOffset: number;
   settings: ReaderSettings;
+  autoTextColor?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -36,9 +41,17 @@ const measureRef = ref<HTMLElement | null>(null);
 const lineProbeRef = ref<HTMLElement | null>(null);
 const page = ref<PageSlice>({ start: 0, end: 0, lines: [] });
 
+const effectiveTextColor = computed(() =>
+  resolveEffectiveTextColor(
+    props.settings.textColor,
+    props.autoTextColor,
+    props.settings.autoTextContrast && props.settings.transparentBackground,
+  ),
+);
+
 const readerStyle = computed(() => ({
   color: readerTextColor(
-    props.settings.textColor,
+    effectiveTextColor.value,
     props.settings.transparentText,
     props.settings.textOpacity,
   ),

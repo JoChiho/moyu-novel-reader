@@ -52,4 +52,10 @@ contextBridge.exposeInMainWorld("moyu", {
     ipcRenderer.on("moyu-stats-tick", handler);
     return () => ipcRenderer.removeListener("moyu-stats-tick", handler);
   },
+  onDesktopLuminanceUpdated: (callback) => {
+    const handler = (_event, payload) => callback(payload);
+    ipcRenderer.on("desktop-luminance-updated", handler);
+    return () =>
+      ipcRenderer.removeListener("desktop-luminance-updated", handler);
+  },
 });

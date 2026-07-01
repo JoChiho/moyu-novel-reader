@@ -1,4 +1,10 @@
-import type { AppState, Book, MoyuStatsSnapshot, TextEncoding } from "./index";
+import type {
+  AppState,
+  Book,
+  DesktopLuminancePayload,
+  MoyuStatsSnapshot,
+  TextEncoding,
+} from "./index";
 
 export interface ImportBookResult {
   ok: boolean;
@@ -60,6 +66,9 @@ export interface MoyuBridge {
   resetMoyuStats: () => Promise<{ ok: boolean }>;
   setMoyuTracking: (enabled: boolean) => Promise<{ ok: boolean }>;
   onMoyuStatsTick: (callback: (payload: MoyuStatsSnapshot) => void) => () => void;
+  onDesktopLuminanceUpdated: (
+    callback: (payload: DesktopLuminancePayload) => void,
+  ) => () => void;
 }
 
 declare global {
